@@ -1,0 +1,51 @@
+# PRODUCTION Dockerfile — multi-stage, standalone Next.js output.
+
+# ---- Stage 1: builder ----
+FROM node:20-alpine AS builder
+
+WORKDIR /app
+
+COPY package*.json ./
+RUN npm ci
+
+COPY . .
+
+# NEXT_PUBLIC_* variables are inlined into the client JS bundle at BUILD
+# time, not read at container runtime — this is a Next.js constraint, not
+# a choice made here. Different environments (staging vs. production API
+# URL) need a rebuild with a different --build-arg, not just a different
+# runtime env var. Documented explicitly so it isn't rediscovered the
+# hard way during the first staging deploy.
+ARG NEXT_PUBLIC_API_URL
+ENV NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
+
+RUN npm run build
+
+# ---- Stage 2: production ----
+FROM node:20-alpine AS production
+
+WORKDIR /app
+ENV NODE_ENV=production
+# Bind all interfaces so Render/Fly/Docker port mapping works (Next
+# standalone defaults to localhost-only if HOSTNAME is unset).
+ENV HOSTNAME=0.0.0.0
+ENV PORT=3000
+
+# .next/standalone already contains its own minimal node_modules subset
+# (only what next/server actually needs) plus a server.js entrypoint —
+# the whole point of `output: 'standalone'` is not needing the full
+# node_modules tree or `npm ci` in this stage at all.
+# `public/` must exist in the build context (even if empty) — COPY fails
+# if the source path is missing.
+COPY --from=builder /app/public ./public
+COPY --from=builder /app/.next/standalone ./
+COPY --from=builder /app/.next/static ./.next/static
+
+USER node
+
+EXPOSE 3000
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
+  CMD wget --spider -q http://localhost:3000/ || exit 1
+
+CMD ["node", "server.js"]

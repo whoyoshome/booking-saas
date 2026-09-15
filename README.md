@@ -2112,8 +2112,111 @@ docker exec booking-api npm run test:e2e
 - [x] `apps/api/package-lock.json` regenerado (incluye `ioredis`, `@nestjs/throttler`) — verificado con `npm ci` OK.
 - [x] `npm run lint` / `test` (25/25) / `build` / `test:e2e` (59/59) verdes en local (simulación del pipeline).
 - [x] `.eslintrc.js` presente para que el step `lint` de CI no falle por config ausente.
-- [ ] Push a una rama → el job `lint-and-unit` corre y pasa en GitHub Actions.
-- [ ] El job `e2e` arranca después (`needs`), levanta Postgres+Redis, aplica las 18 migraciones, corre el seed, y el suite completo pasa en el runner de GitHub.
+- [x] Push a una rama → el job `lint-and-unit` corre y pasa en GitHub Actions (CI #2, commit `2f18c07`, ~2m 12s).
+- [x] El job `e2e` arranca después (`needs`), levanta Postgres+Redis, aplica las 18 migraciones, corre el seed, y el suite completo pasa en el runner de GitHub.
 - [ ] Un PR con un test roto a propósito hace fallar el job correspondiente y bloquea el merge (branch protection — config de repo, no de código).
 
-Cuando el push esté verde en GitHub, seguimos con la **Fase 11: AWS** (Dockerfiles de producción multi-stage, ECR, RDS con los dos roles `booking_admin`/`booking_app` ya diseñados, ElastiCache).
+Cuando el push esté verde en GitHub, seguimos con la **Fase 11** (imágenes de producción + demo pública gratuita para portfolio + diseño AWS documentado; AWS real queda bloqueado hasta tener cuenta/créditos).
+
+---
+
+# Fase 11: Producción / Portfolio — Bitácora
+
+## Por qué se reformuló (no es "AWS gratis")
+
+El objetivo de esta fase, **sin empleo y sin tarjeta para AWS**, es doble y honesto:
+
+1. **Demo en vivo** que un reclutador pueda abrir, loguearse y reservar — sin que tú pagues cloud enterprise.
+2. **Artefactos profesionales** (Dockerfiles multi-stage, CI, diseño AWS / IaC) que demuestren que sabes cómo se desplegaría en un entorno tipo Fargate+RDS, **sin fingir** que Vercel/Render "son" ECS/RDS.
+
+**AWS Free Tier y LocalStack Hobby no resuelven esto hoy:** AWS exige tarjeta aunque diga free; LocalStack Hobby **no** incluye RDS / ElastiCache / ECR / ECS / ALB (esos van en planes de pago o Student Pack). Por eso la Fase 11 se parte en **tres tracks**, no en "desplegar AWS a 0 USD".
+
+| Track | Qué es | Costo | Para el reclutador |
+|-------|--------|-------|--------------------|
+| **11-A Artefactos** | Dockerfiles prod + job `docker-build` en CI | $0 | "Sé construir imágenes lean listas para contenedores" |
+| **11-B Demo live** | Frontend + API + Postgres + Redis en free tiers | $0* | Link en el README: navegar y reservar |
+| **11-C Diseño AWS** | README de arquitectura + (opcional) Terraform **no aplicado** | $0 | "Sé el target enterprise; lo despliego cuando haya cuenta" |
+
+\*Free tiers tienen límites (sleep en Render free, cuotas Neon/Upstash). Documentarlo en el README; no vender "0 USD permanente garantizado".
+
+### Stack demo (11-B) — equivalente **funcional**, no AWS
+
+| Rol | En AWS (target 11-C) | Demo portfolio (11-B) |
+|-----|----------------------|----------------------|
+| Frontend | CloudFront / Amplify / ECS | **Vercel** (Next.js desde GitHub) |
+| API | ECS Fargate + ALB | **Render** o **Fly.io** (contenedor `Dockerfile.prod`) |
+| Postgres + RLS | RDS + roles `booking_admin`/`booking_app` | **Neon** (Postgres; aplicar `init.sql` + migrate con los mismos roles) |
+| Redis | ElastiCache | **Upstash Redis** (TLS) |
+| CI | CodePipeline / Actions | **GitHub Actions** (ya verde: lint, unit, e2e, docker-build) |
+
+**Regla de honestidad en el README del repo:** la sección "Live demo" enlaza Vercel/Render; la sección "Production target (AWS)" describe Fargate/RDS/… y apunta a `docs/aws-target.md` (o `infra/`). Nunca "esto corre en AWS" si corre en free tiers.
+
+### DoD de la fase (completo cuando los tres tracks estén listos)
+
+- [ ] **11-A:** ambas imágenes prod construyen; API `GET /health` 200; web sirve `/login`; CI `docker-build` verde.
+- [ ] **11-B:** URLs públicas en el README; login + reserva funcionan contra Neon/Upstash; CORS y `NEXT_PUBLIC_API_URL` correctos; mismas migraciones/RLS verificadas (no solo "app enciende").
+- [ ] **11-C:** documento de arquitectura AWS (Fargate, dos roles DB, Secrets Manager, ElastiCache) + opcional Terraform sin apply; marcado explícitamente como *not deployed*.
+
+Cuando exista cuenta AWS / créditos: **11-D** (fuera de alcance ahora) = apply real de 11-C sin reescribir la app.
+
+---
+
+## Paso 1 (Track 11-A) — Dockerfiles de producción
+
+**`apps/api/Dockerfile.prod`** — multi-stage:
+- Builder: openssl + `npm ci` completo (devDeps para `nest build` / `prisma generate`), `npm run build`.
+- Producción: `npm ci --omit=dev --ignore-scripts`; se copia el cliente Prisma ya generado desde el builder.
+- Entry: `node dist/src/main.js` (Nest emite bajo `dist/src/` con el `tsconfig` actual).
+- Migraciones **fuera** del contenedor (`DATABASE_MIGRATE_URL` + `prisma migrate deploy`), igual que CI.
+- `USER node`, `HEALTHCHECK` → `GET /health`.
+
+**`apps/web/Dockerfile.prod`** — `output: 'standalone'` en `next.config.js`:
+- `NEXT_PUBLIC_*` se inyectan en **build time** (`--build-arg`), no en runtime del contenedor.
+- Stage prod copia `.next/standalone` + static + `public` (`public/` debe existir aunque esté vacío).
+- `HOSTNAME=0.0.0.0` para que Render/Fly/Docker expongan el puerto.
+- Requiere `apps/web/package-lock.json` para `npm ci`.
+
+**API runtime (demo/cloud):** `PORT` + bind `0.0.0.0`; `CORS_ORIGIN` opcional (origins de Vercel) en `main.ts`.
+
+**CI:** job `docker-build` (`needs: lint-and-unit`) — smoke build, sin ECR.
+
+### Archivos
+
+- `apps/api/Dockerfile.prod`, `apps/web/Dockerfile.prod`
+- `apps/web/package-lock.json`, `apps/web/public/`
+- `apps/web/next.config.js` — `output: 'standalone'`
+- `apps/api/src/main.ts` — `PORT`, `0.0.0.0`, `CORS_ORIGIN`
+- `.github/workflows/ci.yml` — job `docker-build`
+- `docs/deploy-demo.md` — Track 11-B
+- `docs/aws-target.md` — Track 11-C
+
+### Verificación local
+
+```bash
+docker build -f apps/api/Dockerfile.prod -t booking-saas-api:local apps/api
+docker build -f apps/web/Dockerfile.prod \
+  --build-arg NEXT_PUBLIC_API_URL=http://localhost:3001 \
+  -t booking-saas-web:local apps/web
+
+# API contra Postgres/Redis del compose (red docker):
+docker run --rm --network booking-saas_default -p 3011:3001 \
+  -e DATABASE_URL='postgresql://booking_app:...@booking-postgres:5432/booking_saas?schema=public' \
+  -e REDIS_URL='redis://booking-redis:6379' \
+  -e JWT_SECRET=... -e JWT_REFRESH_SECRET=... \
+  booking-saas-api:local
+curl http://localhost:3011/health
+```
+
+### Checklist Paso 1 / Track 11-A
+
+- [x] `docker build` API OK (verificado local).
+- [x] `docker build` web OK (con `package-lock.json` + `public/`).
+- [x] Imagen API: `GET /health` → 200 (contra Postgres/Redis del compose).
+- [x] Imagen web: sirve `/login` → 200.
+- [ ] Push → job `docker-build` verde junto a lint/e2e.
+
+### Siguiente
+
+1. Commit + push de 11-A → confirmar `docker-build` en Actions.
+2. **Track 11-B:** seguir `docs/deploy-demo.md` (Vercel + Render + Neon + Upstash).
+3. **Track 11-C:** `docs/aws-target.md` ya describe el target; Terraform opcional en `infra/` sin apply.

@@ -1,0 +1,59 @@
+# PRODUCTION Dockerfile — multi-stage. The Fase 1 Dockerfile (npm run
+# start:dev, bind-mounted source) stays as-is for local development;
+# this one is what gets pushed to ECR and run in ECS.
+
+# ---- Stage 1: builder ----
+# Has full devDependencies (needed for `nest build` and for the `prisma`
+# CLI's postinstall `prisma generate`). Never shipped to production.
+FROM node:20-alpine AS builder
+
+# OpenSSL must exist *before* `prisma generate` so the client downloads
+# the correct query-engine binary for Alpine (otherwise it defaults to
+# openssl-1.1.x and can fail at runtime even if production has openssl).
+RUN apk add --no-cache openssl
+
+WORKDIR /app
+
+COPY package*.json ./
+COPY prisma ./prisma/
+RUN npm ci
+
+COPY . .
+RUN npm run build
+
+# ---- Stage 2: production ----
+FROM node:20-alpine AS production
+
+# Prisma's query engine needs openssl at runtime — same lesson learned in
+# Fase 1's dev Dockerfile, still applies here.
+RUN apk add --no-cache openssl
+
+WORKDIR /app
+ENV NODE_ENV=production
+
+COPY package*.json ./
+# --omit=dev: no devDependencies (no `prisma` CLI, no `@nestjs/cli`, no
+# test tooling) in the runtime image.
+# --ignore-scripts: postinstall (`prisma generate`) would FAIL here —
+# it needs the `prisma` CLI, which was just excluded by --omit=dev. The
+# already-generated client is copied from the builder stage below
+# instead of being regenerated.
+RUN npm ci --omit=dev --ignore-scripts
+
+# The generated Prisma client — built once in the builder stage (where
+# the full `prisma` CLI was available), reused here as-is.
+COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
+COPY --from=builder /app/node_modules/@prisma/client ./node_modules/@prisma/client
+COPY --from=builder /app/dist ./dist
+
+# Runs as the image's built-in unprivileged user, not root.
+USER node
+
+EXPOSE 3001
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
+  CMD wget --spider -q http://localhost:3001/health || exit 1
+
+# Nest emits under dist/src/ because sourceRoot is `src` and tsconfig
+# has no rootDir override — entry is dist/src/main.js, not dist/main.js.
+CMD ["node", "dist/src/main.js"]

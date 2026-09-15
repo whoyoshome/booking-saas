@@ -128,3 +128,25 @@ jobs:
 
       - name: e2e suite
         run: npm run test:e2e
+
+  # Fase 11, Paso 1: smoke-tests both production Dockerfiles on every
+  # push — no ECR push yet (that arrives with Paso 4, once registry
+  # credentials exist as repo secrets). Catches a broken Dockerfile
+  # immediately, same day it's introduced, instead of at first real
+  # deploy time.
+  docker-build:
+    runs-on: ubuntu-latest
+    needs: lint-and-unit
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build api production image
+        run: docker build -f apps/api/Dockerfile.prod -t booking-saas-api:ci apps/api
+
+      - name: Build web production image
+        run: |
+          docker build \
+            -f apps/web/Dockerfile.prod \
+            --build-arg NEXT_PUBLIC_API_URL=https://api.placeholder.invalid \
+            -t booking-saas-web:ci \
+            apps/web
