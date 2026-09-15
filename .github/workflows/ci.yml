@@ -24,7 +24,13 @@ jobs:
           cache: 'npm'
           cache-dependency-path: apps/api/package-lock.json
 
-      - run: npm ci
+      # IMPORTANT: the repo root package.json declares npm workspaces, but
+      # there is no root package-lock.json (each app keeps its own lock,
+      # matching the Docker setup that mounts only apps/api). Without
+      # --no-workspaces, `npm ci` walks up to the workspace root, ignores
+      # apps/api/package-lock.json, and fails instantly with EUSAGE —
+      # exactly the ~14s red X on the first push to main.
+      - run: npm ci --no-workspaces
 
       - run: npm run lint
 
@@ -99,7 +105,7 @@ jobs:
       - name: Install postgresql-client
         run: sudo apt-get update && sudo apt-get install -y --no-install-recommends postgresql-client
 
-      - run: npm ci
+      - run: npm ci --no-workspaces
 
       # Same script that runs inside docker/postgres/init.sql on a fresh
       # local volume: enables btree_gist, creates the booking_app role,
