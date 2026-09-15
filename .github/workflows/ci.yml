@@ -1,0 +1,124 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  # Fast job: no external services needed. Fails in ~1-2 min if there's a
+  # type error, a lint violation, or a unit test regression — this is the
+  # job that should catch most mistakes before the slower e2e job even
+  # starts.
+  lint-and-unit:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/api
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: apps/api/package-lock.json
+
+      - run: npm ci
+
+      - run: npm run lint
+
+      - name: Unit tests (no DB/Redis required)
+        run: npm run test
+
+      - name: Build (catches TS errors the tests above didn't exercise)
+        run: npm run build
+
+  # Slow job: real Postgres + Redis, all 18 migrations applied in order,
+  # seed run, then the full e2e suite — this is the job that actually
+  # proves RLS, the exclusion constraint, and cache invalidation work,
+  # not just that the code compiles.
+  e2e:
+    runs-on: ubuntu-latest
+    needs: lint-and-unit
+    defaults:
+      run:
+        working-directory: apps/api
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: booking_admin
+          POSTGRES_PASSWORD: change_me_local_only
+          POSTGRES_DB: booking_saas
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U booking_admin -d booking_saas"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      # DATABASE_URL = booking_app (non-superuser, subject to RLS) — same
+      # convention as local dev since the Fase 5 fix. DATABASE_MIGRATE_URL
+      # = booking_admin (owner/superuser), used ONLY for the migration and
+      # init.sql steps below, exactly like the manual `docker exec -e
+      # DATABASE_URL=...` commands used throughout this project's local
+      # workflow.
+      DATABASE_URL: postgresql://booking_app:change_me_local_only_app@localhost:5432/booking_saas?schema=public
+      DATABASE_MIGRATE_URL: postgresql://booking_admin:change_me_local_only@localhost:5432/booking_saas?schema=public
+      REDIS_URL: redis://localhost:6379
+      JWT_SECRET: ci_jwt_secret_never_used_outside_ci
+      JWT_REFRESH_SECRET: ci_jwt_refresh_secret_never_used_outside_ci
+      JWT_ACCESS_EXPIRES_IN: 15m
+      JWT_REFRESH_EXPIRES_IN: 7d
+      SEED_SUPER_ADMIN_EMAIL: admin@bookingsaas.dev
+      SEED_SUPER_ADMIN_PASSWORD: ChangeMe123!
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: apps/api/package-lock.json
+
+      - name: Install postgresql-client
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends postgresql-client
+
+      - run: npm ci
+
+      # Same script that runs inside docker/postgres/init.sql on a fresh
+      # local volume: enables btree_gist, creates the booking_app role,
+      # and sets ALTER DEFAULT PRIVILEGES so every table booking_admin
+      # creates from here on automatically grants booking_app access —
+      # this MUST run before the migrations below create any tables.
+      - name: Apply init.sql (btree_gist + booking_app role)
+        working-directory: .
+        run: |
+          PGPASSWORD=change_me_local_only psql -h localhost -U booking_admin -d booking_saas \
+            -f docker/postgres/init.sql
+
+      - name: Apply all 18 migrations (as booking_admin/owner)
+        run: DATABASE_URL="$DATABASE_MIGRATE_URL" npx prisma migrate deploy
+
+      - run: npx prisma generate
+
+      - name: Seed (super admin + tenant-a/tenant-b demo data)
+        run: npm run seed
+
+      - name: e2e suite
+        run: npm run test:e2e

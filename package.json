@@ -1,0 +1,16 @@
+{
+  "name": "booking-saas",
+  "private": true,
+  "workspaces": [
+    "apps/*"
+  ],
+  "scripts": {
+    "dev:api": "npm run start:dev --workspace=apps/api",
+    "dev:web": "npm run dev --workspace=apps/web",
+    "lint": "npm run lint --workspace=apps/api && npm run lint --workspace=apps/web",
+    "build": "npm run build --workspace=apps/api && npm run build --workspace=apps/web"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}

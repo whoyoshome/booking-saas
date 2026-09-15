@@ -1,0 +1,417 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum Role {
+  SUPER_ADMIN
+  TENANT_ADMIN
+  STAFF
+  CLIENT
+}
+
+enum TenantStatus {
+  ACTIVE
+  SUSPENDED
+}
+
+// Phase 3 — Multi-tenancy. Minimal model: only what's needed to resolve
+// the tenant at login and anchor data isolation. branches, services, etc.
+// arrive in Phase 4.
+model Tenant {
+  id   String @id @default(uuid())
+  name String
+
+  // Public, stable identifier used to resolve the tenant at login (see
+  // LoginDto.tenantSlug). Deliberately not the PK: slug is the kind of
+  // field a business might want to change someday (rebranding), and we
+  // don't want that change to mean rewriting FKs across the system.
+  slug String @unique
+
+  // Tenant default timezone. Branches will be able to override it in
+  // Phase 4 (a tenant with branches in different cities/countries).
+  timezone String @default("UTC")
+
+  status TenantStatus @default(ACTIVE)
+
+  users    User[]
+  branches Branch[]
+  services Service[]
+  staff    Staff[]
+  staffServices StaffService[]
+  staffSchedules StaffSchedule[]
+  staffScheduleExceptions StaffScheduleException[]
+  branchSchedules BranchSchedule[]
+  branchScheduleExceptions BranchScheduleException[]
+  bookings Booking[]
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("tenants")
+}
+
+// DESIGN NOTE — composite uniqueness restored:
+// Phase 2 relaxed `email` to GLOBALLY unique because login could not resolve
+// the tenant before looking up the user. Now that the Tenant model exists,
+// this is the final design: email unique PER TENANT.
+//
+// Known and accepted edge case: in PostgreSQL, a composite UNIQUE treats
+// each NULL as distinct from every other NULL. Since `tenantId` is NULL for
+// every SUPER_ADMIN, this constraint does NOT prevent creating two super
+// admins with the same email. This is low-risk (super admins are only
+// created via the administrative seed/script, never through a public
+// endpoint) and we are not solving it with an extra constraint yet — that
+// would be complexity for a scenario that is not a real threat today.
+model User {
+  id String @id @default(uuid())
+
+  // Real FK to Tenant. Nullable: SUPER_ADMIN does not belong to any tenant.
+  tenantId String? @map("tenant_id")
+  tenant   Tenant? @relation(fields: [tenantId], references: [id])
+
+  email        String
+  passwordHash String @map("password_hash")
+  role         Role
+
+  // Hash of the active refresh token. Simplified single-session-per-user
+  // design (see auth.service.ts for rationale and trade-off vs a
+  // refresh_tokens table with multi-device support).
+  refreshTokenHash String? @map("refresh_token_hash")
+
+  // One-to-one: a STAFF-role user has exactly one Staff profile. Nullable
+  // because SUPER_ADMIN/TENANT_ADMIN/CLIENT users never have one.
+  staff Staff?
+  bookingsAsClient Booking[]
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@unique([tenantId, email], name: "tenant_email_unique")
+  @@map("users")
+}
+
+// Phase 4, Step 1 — first real business entity. Unlike User.tenantId,
+// Branch.tenantId is NOT nullable: a branch always belongs to exactly one
+// tenant, there is no "super-admin-owned" branch equivalent to a
+// SUPER_ADMIN user.
+model Branch {
+  id       String @id @default(uuid())
+  tenantId String @map("tenant_id")
+  tenant   Tenant @relation(fields: [tenantId], references: [id])
+
+  name String
+
+  // Defaults to UTC rather than inheriting Tenant.timezone at creation
+  // time — an explicit, always-present value here is simpler to reason
+  // about than "look at the branch, and if null, look at its tenant".
+  // Admins are expected to set this correctly per branch when it matters
+  // (a tenant with branches in different cities/countries).
+  timezone String  @default("UTC")
+  address  String?
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  deletedAt DateTime? @map("deleted_at")
+
+  services Service[]
+  staff    Staff[]
+  schedules BranchSchedule[]
+  scheduleExceptions BranchScheduleException[]
+  bookings Booking[]
+
+  @@index([tenantId])
+  @@map("branches")
+}
+
+// Phase 4, Step 2 — the service a business offers (e.g. "Corte de cabello",
+// "Consulta general"). durationMinutes + bufferMinutes is what the Phase 0
+// Technical Plan's booking design relies on: the exclusion constraint in
+// Phase 6 (general roadmap) will block the effective range
+// [start, end + bufferMinutes), so the cleanup/prep time is enforced by
+// PostgreSQL itself, not by application logic remembering to add it.
+//
+// price uses Decimal, never Float — money should never be represented with
+// binary floating point (0.1 + 0.2 !== 0.3 is not a theoretical concern
+// once you're calculating totals across many bookings).
+model Service {
+  id       String @id @default(uuid())
+
+  // Denormalized on purpose, same reasoning as Branch.tenantId: RLS and
+  // application guards need to filter by tenant_id directly on this table,
+  // without depending on a join through Branch.
+  tenantId String @map("tenant_id")
+  tenant   Tenant @relation(fields: [tenantId], references: [id])
+
+  // DECISION: a service belongs to exactly one branch (not a tenant-wide
+  // catalog offered by multiple branches with a shared template). This is
+  // the simpler model, and correct for the common case; the "same service
+  // definition shared across branches" need is real but not urgent —
+  // revisit when duplicating a service across branches manually actually
+  // becomes a recurring pain point, not before.
+  branchId String @map("branch_id")
+  branch   Branch @relation(fields: [branchId], references: [id])
+
+  name             String
+  durationMinutes  Int     @map("duration_minutes")
+  bufferMinutes    Int     @default(0) @map("buffer_minutes")
+  price            Decimal @db.Decimal(10, 2)
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  deletedAt DateTime? @map("deleted_at")
+
+  staffAssignments StaffService[]
+  bookings Booking[]
+
+  @@unique([branchId, name])
+  @@index([tenantId])
+  @@map("services")
+}
+
+// Phase 4, Step 3 — a STAFF-role user's employment profile: which tenant,
+// which branch, and (via StaffService) which services they can perform.
+//
+// DECISION — Staff creation provisions the User too, in the same
+// operation. There is no invite/magic-link flow yet (that's Phase 17 of
+// the general roadmap, Notifications), so POST /staff creates a new User
+// (role STAFF) with a generated temporary password, returned ONCE in the
+// response, alongside the Staff profile. This is a known, deliberate
+// simplification — not the final design — revisit when a real invite flow
+// exists and this endpoint can stop handling credential provisioning
+// itself.
+model Staff {
+  id       String @id @default(uuid())
+  tenantId String @map("tenant_id")
+  tenant   Tenant @relation(fields: [tenantId], references: [id])
+
+  branchId String @map("branch_id")
+  branch   Branch @relation(fields: [branchId], references: [id])
+
+  // One-to-one with User: every Staff profile has exactly one underlying
+  // login account, and a User can have at most one Staff profile.
+  userId String @unique @map("user_id")
+  user   User   @relation(fields: [userId], references: [id])
+
+  services StaffService[]
+  schedules StaffSchedule[]
+  scheduleExceptions StaffScheduleException[]
+  bookings Booking[]
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  deletedAt DateTime? @map("deleted_at")
+
+  @@index([tenantId])
+  @@map("staff")
+}
+
+// Join table: which services a staff member is qualified to perform.
+// tenantId is denormalized here too, same reasoning as everywhere else in
+// this schema — RLS needs to filter this table directly, without a join
+// through Staff or Service just to know which tenant a row belongs to.
+model StaffService {
+  tenantId String @map("tenant_id")
+  tenant   Tenant @relation(fields: [tenantId], references: [id])
+
+  staffId String @map("staff_id")
+  staff   Staff  @relation(fields: [staffId], references: [id])
+
+  serviceId String  @map("service_id")
+  service   Service @relation(fields: [serviceId], references: [id])
+
+  @@id([staffId, serviceId])
+  @@index([tenantId])
+  @@map("staff_services")
+}
+
+// Phase 5, Step 0 (design) — recurring weekly availability for a staff
+// member. Deliberately staff-scoped only in this version; Branch-level
+// opening-hours as an additional constraint is a known, explicit gap for a
+// later step (see README.md Fase 5 notes) — not solved here.
+//
+// startTime/endTime are WALL-CLOCK LOCAL TIME (Prisma @db.Time), NOT UTC.
+// A recurring rule like "Monday 9am" only makes sense as local time — if
+// stored pre-converted to a UTC offset, DST transitions would silently
+// shift what "9am" means. The timezone to interpret these against is
+// staff.branch.timezone, resolved only at slot-calculation time (a later
+// step), never stored here. See the Fase 5 design notes for the full
+// reasoning.
+//
+// No overlap check here at the database level (no exclusion constraint,
+// unlike Booking's future time_range): editing a staff member's schedule
+// is a low-frequency administrative action, not a high-concurrency
+// customer-facing write. Overlap is validated in application code
+// (StaffSchedulesService) instead — proportional to the actual risk.
+model StaffSchedule {
+  id       String @id @default(uuid())
+  tenantId String @map("tenant_id")
+  tenant   Tenant @relation(fields: [tenantId], references: [id])
+
+  staffId String @map("staff_id")
+  staff   Staff  @relation(fields: [staffId], references: [id])
+
+  // ISO-8601: 1 = Monday ... 7 = Sunday. Explicit to avoid the classic
+  // "is Sunday 0 or 6" ambiguity between different conventions.
+  dayOfWeek Int @map("day_of_week")
+
+  startTime DateTime @map("start_time") @db.Time()
+  endTime   DateTime @map("end_time") @db.Time()
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([tenantId])
+  @@index([staffId, dayOfWeek])
+  @@map("staff_schedules")
+}
+
+// Date-specific override of the recurring StaffSchedule. RULE (confirmed
+// before implementation): an exception REPLACES the recurring weekly
+// schedule for that date entirely — it does not merge with it. If
+// isAvailable is true, startTime/endTime are REQUIRED (enforced in
+// StaffScheduleExceptionsService, not just the DB CHECK below) — an
+// exception marking a day "available" with no time range is meaningless.
+// If isAvailable is false, startTime/endTime must be absent — a "not
+// available" exception with a time range is a contradiction, rejected
+// rather than silently accepted. No overnight spans in v1 (endTime must
+// be strictly after startTime on the same calendar day) — same constraint
+// as StaffSchedule, same reasoning: the exclusion-constraint machinery
+// this would require is not justified yet.
+model StaffScheduleException {
+  id       String @id @default(uuid())
+  tenantId String @map("tenant_id")
+  tenant   Tenant @relation(fields: [tenantId], references: [id])
+
+  staffId String @map("staff_id")
+  staff   Staff  @relation(fields: [staffId], references: [id])
+
+  date        DateTime @db.Date
+  isAvailable Boolean  @map("is_available")
+  startTime   DateTime? @map("start_time") @db.Time()
+  endTime     DateTime? @map("end_time") @db.Time()
+  reason      String?
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@unique([staffId, date])
+  @@index([tenantId])
+  @@map("staff_schedule_exceptions")
+}
+
+// Phase 5, Step 3 — the branch's own opening hours, closing the gap left
+// open since Step 0: without this, AvailabilityService could return slots
+// while the branch itself is closed. Mirrors StaffSchedule/
+// StaffScheduleException exactly (same wall-clock-time reasoning, same
+// no-DB-exclusion-constraint reasoning, same replace-not-merge exception
+// rule) — the only real differences are the field name (`isOpen` instead
+// of `isAvailable`, more accurate for a physical location than a person)
+// and what it's scoped to (branchId instead of staffId).
+model BranchSchedule {
+  id       String @id @default(uuid())
+  tenantId String @map("tenant_id")
+  tenant   Tenant @relation(fields: [tenantId], references: [id])
+
+  branchId String @map("branch_id")
+  branch   Branch @relation(fields: [branchId], references: [id])
+
+  dayOfWeek Int @map("day_of_week") // 1=Monday ... 7=Sunday, same convention as StaffSchedule
+
+  startTime DateTime @map("start_time") @db.Time()
+  endTime   DateTime @map("end_time") @db.Time()
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([tenantId])
+  @@index([branchId, dayOfWeek])
+  @@map("branch_schedules")
+}
+
+// RULES (same shape as StaffScheduleException, `isOpen` instead of
+// `isAvailable`): an exception REPLACES the recurring weekly schedule for
+// that date. isOpen=true requires startTime/endTime; isOpen=false forbids
+// them. No overnight spans in v1.
+model BranchScheduleException {
+  id       String @id @default(uuid())
+  tenantId String @map("tenant_id")
+  tenant   Tenant @relation(fields: [tenantId], references: [id])
+
+  branchId String @map("branch_id")
+  branch   Branch @relation(fields: [branchId], references: [id])
+
+  date      DateTime @db.Date
+  isOpen    Boolean  @map("is_open")
+  startTime DateTime? @map("start_time") @db.Time()
+  endTime   DateTime? @map("end_time") @db.Time()
+  reason    String?
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@unique([branchId, date])
+  @@index([tenantId])
+  @@map("branch_schedule_exceptions")
+}
+
+enum BookingStatus {
+  PENDING
+  CONFIRMED
+  CANCELLED
+  COMPLETED
+  NO_SHOW
+}
+
+// Fase 6 — the reservation itself. startTime/endTime are plain
+// @db.Timestamptz columns (Prisma has no native range type), NOT a
+// physical tstzrange column — the exclusion constraint (added via raw SQL
+// migration, not representable in schema.prisma) computes
+// tstzrange(start_time, end_time) from these two columns directly. This
+// keeps normal reads/writes on ordinary Prisma-typed columns while still
+// getting full EXCLUDE USING gist protection.
+//
+// endTime already includes service.bufferMinutes at creation time — the
+// "effective" range from the Phase 0 Technical Plan, so cleanup/prep time
+// is blocked by the constraint automatically, not by application logic.
+//
+// Both PENDING and CONFIRMED participate in the exclusion constraint
+// (approved in the Fase 3 adjustments, at project start): a checkout in
+// progress holds the slot immediately. PENDING rows are expired by a
+// scheduled sweep (see bookings-cleanup.service.ts), not BullMQ — a
+// periodic sweep is simpler than per-booking scheduled jobs for this.
+model Booking {
+  id       String @id @default(uuid())
+  tenantId String @map("tenant_id")
+  tenant   Tenant @relation(fields: [tenantId], references: [id])
+
+  branchId String @map("branch_id")
+  branch   Branch @relation(fields: [branchId], references: [id])
+
+  staffId String @map("staff_id")
+  staff   Staff  @relation(fields: [staffId], references: [id])
+
+  serviceId String  @map("service_id")
+  service   Service @relation(fields: [serviceId], references: [id])
+
+  clientId String @map("client_id")
+  client   User   @relation(fields: [clientId], references: [id])
+
+  startTime DateTime @map("start_time") @db.Timestamptz()
+  endTime   DateTime @map("end_time") @db.Timestamptz()
+
+  status BookingStatus @default(PENDING)
+
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+  cancelledAt DateTime? @map("cancelled_at")
+
+  @@index([tenantId])
+  @@index([staffId, startTime])
+  @@index([status])
+  @@map("bookings")
+}
