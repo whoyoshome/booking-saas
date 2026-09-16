@@ -1,25 +1,78 @@
 # Booking SaaS
 
-## 🔗 Live demo
+Multi-tenant booking platform (NestJS API + Next.js). Row Level Security in Postgres so **tenant A never sees tenant B**. Timezones with Luxon, Redis cache, CI on every push.
 
-**Web:** https://booking-saas-web-two.vercel.app/login
-**API:** https://booking-saas-wrac.onrender.com/health
+---
 
-> El backend de la demo corre en el plan free de Render — si nadie lo usó en un rato, el primer request puede tardar ~30-50s en "despertar" (cold start). Es una limitación del hosting gratuito, no del código; reintentar el login si el primer intento da timeout.
+## Live demo
 
-**Credenciales de prueba** (dos tenants aislados — el punto central del proyecto es que uno nunca ve datos del otro):
+| | URL |
+|--|--|
+| **App** | https://booking-saas-web-two.vercel.app/login |
+| **API health** | https://booking-saas-wrac.onrender.com/health |
 
-| Tenant slug | Email | Password | Qué vas a ver |
-|---|---|---|---|
-| `tenant-a` | `admin@tenant.dev` | `ChangeMe123!` | Sucursal Centro (Bogotá) — servicio "Corte de cabello" |
-| `tenant-b` | `admin@tenant.dev` | `ChangeMe123!` | Sucursal Reforma (Ciudad de México) — servicio "Consulta general" |
-| *(vacío — super admin)* | `admin@bookingsaas.dev` | `ChangeMe123!` | Vista cross-tenant |
+The API is on Render **free**: the first request after idle can take **30–50s**. Retry login if it times out — that is the host sleeping, not a bug.
 
-Flujo recomendado: login como `tenant-a` → `/book` → elegir sucursal/servicio/staff → ver horarios reales (calculados con `luxon` contra la zona horaria real de la sucursal, con reservas ya existentes restadas) → confirmar. Repetir con `tenant-b` para confirmar que el catálogo es completamente distinto.
+### Test accounts (same password: `ChangeMe123!`)
 
-**Stack de esta demo (gratis, no AWS):** Vercel (frontend) + Render (API, `Dockerfile.prod`) + Neon (PostgreSQL, RLS real) + Upstash (Redis). Detalle completo, incluyendo los ajustes específicos de cada proveedor, en [`docs/deploy-demo.md`](docs/deploy-demo.md).
+| Who | Email | Tenant in the login select |
+|--|--|--|
+| Clinic admin | `admin@tenant.dev` | Tenant A — Demo Clínica |
+| Salon admin | `admin@tenant.dev` | Tenant B — Demo Salón |
+| Super admin | `admin@bookingsaas.dev` | Super admin (sin tenant) |
 
-**Target de producción (AWS):** diseñado y documentado en [`docs/aws-target.md`](docs/aws-target.md) — **no desplegado** (sin cuenta AWS activa todavía). No confundir esta demo con una demo corriendo en AWS.
+**Try this:** log in as Tenant A → pick **Sucursal Centro** → **Nueva reserva** → service / staff / a weekday slot → confirm. Log in as Tenant B: different branch, timezone (`America/Mexico_City`), and catalog. That is the product.
+
+This live stack is **Vercel + Render + Neon + Upstash** (free tiers). It is **not AWS**. Production target (Fargate, RDS, ElastiCache) is documented and **not deployed**: [`docs/aws-target.md`](docs/aws-target.md). Deploy notes: [`docs/deploy-demo.md`](docs/deploy-demo.md).
+
+---
+
+## Stack
+
+| Layer | Tech |
+|--|--|
+| API | NestJS, Prisma, JWT (access + rotating refresh), argon2id |
+| Web | Next.js 14 (App Router), Tailwind |
+| Data | PostgreSQL 16, **RLS** + roles `booking_admin` / `booking_app`, `btree_gist` exclusion on overlapping bookings |
+| Cache | Redis (ioredis; degrades if Redis is down) |
+| CI | GitHub Actions: lint, unit, e2e (59), production Docker builds |
+
+## What a reviewer usually asks
+
+- **Isolation:** RLS + `SET LOCAL` per request, not `WHERE tenant_id` only in the app.
+- **Correct time:** availability in the **branch** IANA timezone, not the server’s.
+- **Double booking:** Postgres exclusion constraint, mapped to HTTP 409.
+- **Honest deploy:** Dockerfiles of production exist; AWS is a written target, not a fake “runs on ECS” claim.
+
+---
+
+## Local (Docker)
+
+```bash
+cp .env.example .env
+docker compose up --build
+```
+
+API `http://localhost:3001/health` · web `http://localhost:3000`.  
+After `docker compose down -v`, migrate as `booking_admin` then `npm run seed` (see Fase 1 below).
+
+---
+
+## Docs vs this file
+
+| File | For |
+|--|--|
+| **This README** | Demo, stack, then the **engineering log** (Fases 1–12) |
+| [`docs/deploy-demo.md`](docs/deploy-demo.md) | How the free demo was wired (Neon roles, Render, Vercel) |
+| [`docs/aws-target.md`](docs/aws-target.md) | Intended AWS shape — not applied |
+
+You do **not** need another markdown for a recruiter. The log below is for depth; the tables above are enough to start.
+
+---
+
+# Engineering log (phases)
+
+The rest of this file is a chronological bitácora (setup → auth → RLS → bookings → CI → demo → UX). Skip it unless you want design decisions and checklists.
 
 ---
 
