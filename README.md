@@ -1,4 +1,29 @@
-# Booking SaaS — Fase 1: Setup del proyecto
+# Booking SaaS
+
+## 🔗 Live demo
+
+**Web:** https://booking-saas-web-two.vercel.app/login
+**API:** https://booking-saas-wrac.onrender.com/health
+
+> El backend de la demo corre en el plan free de Render — si nadie lo usó en un rato, el primer request puede tardar ~30-50s en "despertar" (cold start). Es una limitación del hosting gratuito, no del código; reintentar el login si el primer intento da timeout.
+
+**Credenciales de prueba** (dos tenants aislados — el punto central del proyecto es que uno nunca ve datos del otro):
+
+| Tenant slug | Email | Password | Qué vas a ver |
+|---|---|---|---|
+| `tenant-a` | `admin@tenant.dev` | `ChangeMe123!` | Sucursal Centro (Bogotá) — servicio "Corte de cabello" |
+| `tenant-b` | `admin@tenant.dev` | `ChangeMe123!` | Sucursal Reforma (Ciudad de México) — servicio "Consulta general" |
+| *(vacío — super admin)* | `admin@bookingsaas.dev` | `ChangeMe123!` | Vista cross-tenant |
+
+Flujo recomendado: login como `tenant-a` → `/book` → elegir sucursal/servicio/staff → ver horarios reales (calculados con `luxon` contra la zona horaria real de la sucursal, con reservas ya existentes restadas) → confirmar. Repetir con `tenant-b` para confirmar que el catálogo es completamente distinto.
+
+**Stack de esta demo (gratis, no AWS):** Vercel (frontend) + Render (API, `Dockerfile.prod`) + Neon (PostgreSQL, RLS real) + Upstash (Redis). Detalle completo, incluyendo los ajustes específicos de cada proveedor, en [`docs/deploy-demo.md`](docs/deploy-demo.md).
+
+**Target de producción (AWS):** diseñado y documentado en [`docs/aws-target.md`](docs/aws-target.md) — **no desplegado** (sin cuenta AWS activa todavía). No confundir esta demo con una demo corriendo en AWS.
+
+---
+
+
 
 ## Estructura
 
@@ -2220,3 +2245,142 @@ curl http://localhost:3011/health
 1. Commit + push de 11-A → confirmar `docker-build` en Actions.
 2. **Track 11-B:** seguir `docs/deploy-demo.md` (Vercel + Render + Neon + Upstash).
 3. **Track 11-C:** `docs/aws-target.md` ya describe el target; Terraform opcional en `infra/` sin apply.
+
+---
+
+## 11-B — Live demo desplegada + datos de demo
+
+**URLs confirmadas:**
+- Web: https://booking-saas-web-two.vercel.app/login
+- API: https://booking-saas-wrac.onrender.com/health → `200`
+
+Login verificado en los 3 casos (`tenant-a`, `tenant-b`, super admin). `CORS_ORIGIN` y `NEXT_PUBLIC_API_URL` configurados sin slash final, redeploy de Vercel hecho tras el cambio.
+
+### Fix real encontrado: `/book` tenía una fecha de test hardcodeada
+
+`apps/web/app/book/page.tsx` usaba `DEFAULT_DATE = '2026-09-14'` — la fecha de referencia fija de los tests del backend. Funciona para e2e (controlan el reloj), pero en una demo pública real un reclutador la abre en la fecha real del día, no en esa. Reemplazado por `todayAsDateString()`, calculado en el cliente al montar el componente.
+
+### `apps/api/prisma/seed-demo.ts` — script nuevo, separado de `seed.ts`
+
+**Por qué separado y no una extensión de `seed.ts`:** `seed.ts` es el que corre `npm run seed` en docker-compose local **y** en el job `e2e` de CI. Ningún test e2e asume un conteo exacto de sucursales/staff al arrancar (cada uno crea las suyas), así que probablemente habría sido seguro extenderlo — pero "probablemente" no alcanza para algo de lo que depende CI. Un script separado elimina el riesgo por completo: nunca se invoca desde `docker-compose.yml` ni desde `ci.yml`, se corre a mano, una vez, contra Neon.
+
+**Qué crea, por tenant** (mismo patrón de bypass RLS que `seed.ts` — `set_config('app.is_super_admin', 'true', true)` dentro de una transacción, porque este script no tiene contexto de un tenant único):
+
+| | `tenant-a` | `tenant-b` |
+|---|---|---|
+| Sucursal | Sucursal Centro — `America/Bogota` | Sucursal Reforma — `America/Mexico_City` |
+| Servicio | Corte de cabello (30 min + 10 buffer) | Consulta general (45 min + 15 buffer) |
+| Staff | `ana@tenant-a.dev` / `ChangeMe123!` | `carlos@tenant-b.dev` / `ChangeMe123!` |
+| Horario | Lunes a viernes, 09:00-17:00 local | Lunes a viernes, 09:00-17:00 local |
+
+**Por qué dos timezones reales distintos, no el mismo:** es la forma más visible de que un reclutador confirme con sus propios ojos que la conversión de zona horaria de la Fase 5 funciona de verdad — el mismo horario local en Bogotá y Ciudad de México no cae en el mismo instante UTC.
+
+**Por qué Lunes a Viernes, no un solo día fijo:** una demo pública se abre en la fecha real de cualquier día — sembrar un único día fijo (como hacen los tests) dejaría la demo "vacía" la mayoría de las veces que alguien la visite.
+
+### Comandos (contra Neon, con `booking_app` pooled — mismo patrón de siempre)
+
+```bash
+DATABASE_URL="<connection string pooled de booking_app en Neon>" npm run seed:demo
+```
+
+### Checklist
+
+- [x] Web y API responden públicamente, login funciona para los 3 casos.
+- [x] `/book` usa la fecha real, no una fecha de test.
+- [x] `seed-demo.ts` corrido contra Neon — confirmado: `GET /branches` en la API pública devuelve "Sucursal Centro" / `America/Bogota` para `tenant-a` y "Sucursal Reforma" / `America/Mexico_City` para `tenant-b`.
+- [x] Flujo `/book` completo (sucursal → servicio → staff → slot real → `201`) probado en la demo pública — confirmado, `201` real en la UI de Vercel contra la API de Render.
+- [x] README con la sección "Live demo" arriba del todo.
+
+### Siguiente
+
+**11-B cerrado formalmente.** Los 3 tracks honestos de la Fase 11 quedan: 11-A (artefactos Docker/CI) ✅, 11-B (demo live free) ✅, 11-C (diseño AWS + Terraform sin aplicar) — pendiente, es lo que sigue.
+
+---
+
+# Fase 12: UX del frontend — Bitácora
+
+**Alcance:** casi solo `apps/web`. Un cambio de backend, acotado (ver abajo). Sin Terraform, sin tocar Prisma/RLS/migraciones. CI: `lint-and-unit` y `e2e` no buildean `apps/web`; `docker-build` sí corre `next build` de web, así que un `useSearchParams` sin `<Suspense>` rompería ese job.
+
+> El “Fase 12” mencionado en la bitácora de multi-tenancy (asistente de IA / no mezclar LLM dentro del interceptor RLS) es **otro tema, numeración vieja**. Esta Fase 12 es **UX del front**. El aviso del interceptor sigue válido para cuando exista IA.
+
+## El único cambio de backend, y por qué entra dentro de lo permitido
+
+`BookingsService.findAll()` (`GET /bookings`, ya existía) ahora incluye `branch.name`, `service.name`, `staff.user.email` vía `include` de Prisma. **Aditivo:** los campos planos siguen. Sin esto, “Reservas” mostraría UUIDs. Los e2e de bookings no hacen `toEqual` del objeto entero; el test de CLIENT vs CLIENT sigue filtrando por `clientId`.
+
+**Matiz de producto:** un `TENANT_ADMIN` ve las reservas **del tenant** (no un filtro “solo las mías”). El título del dashboard es “Reservas”, no “Mis reservas”, para no mentir. Un `CLIENT` sí está limitado a las suyas en el mismo endpoint.
+
+## P0 — flujo usable
+
+- **`components/Header.tsx`** — Dashboard (botón borde), Nueva reserva (botón primario negro), Cerrar sesión. En `dashboard` y `/book`, no en `login`.
+- **Botón "← Atrás" en `/book`** — `PREVIOUS_STEP`. Las **listas** (sucursales/servicios/staff) se conservan; las **selecciones del paso que abandonás** se limpian (si no, el chip “Corte de cabello” seguía visible al volver a “elegí un servicio”).
+- **Chips** — solo muestran pasos **ya confirmados** (anteriores al paso actual).
+- **Sucursal del dashboard → `/book?branchId=<id>`** — `Link` + preselect. `useSearchParams` va en `BookPageContent` dentro de `<Suspense>` (`BookPage` wrapper) para no romper `next build` / Vercel / `docker-build`.
+- El preselect usa un `ref` para no disparar `chooseBranch` dos veces (Strict Mode).
+
+## P1 — cierre del loop
+
+- **“Reservas”** en el dashboard — `GET /bookings`, loading/vacío/error, nombres vía `include`. Orden en UI: más recientes primero (`startTime` desc, solo front).
+- Tras confirmar: “Hacer otra reserva” + “Volver al dashboard”.
+
+## P2 — login demo + estilo mínimo
+
+- Login: `<select>` Clínica / Salón / super admin / “Otro” (slug libre).
+- Tailwind existente, sin design system nuevo.
+
+## P2b (post-checklist original) — listas largas
+
+Verificado en local con `npm run seed:visual` (30+ sucursales). Sin esto el dashboard era un scroll infinito.
+
+- `components/use-paged-list.ts` — 8 ítems + “Ver más” + buscar si hay más de 8.
+- Grid 2 columnas + CTA “Reservar →” en sucursales.
+- El mismo tope de 8 + buscar en el paso 1 de `/book`.
+
+**`prisma/seed-visual-qa.ts` + `npm run seed:visual`:** solo QA **local**. Nunca CI, nunca Neon (ensucia la demo pública).
+
+## Archivos nuevos
+
+- `apps/web/components/Header.tsx`
+- `apps/web/components/use-paged-list.ts`
+- `apps/api/prisma/seed-demo.ts` (datos de sucursal/servicio/staff para demo; no está en CI)
+- `apps/api/prisma/seed-visual-qa.ts` (solo local)
+
+## Archivos modificados
+
+- `apps/web/app/book/page.tsx`
+- `apps/web/app/dashboard/page.tsx`
+- `apps/web/app/login/page.tsx`
+- `apps/web/lib/types.ts`
+- `apps/api/src/bookings/bookings.service.ts` — `include` en `findAll()`
+- `apps/api/package.json` — `seed:demo`, `seed:visual`
+
+## Comandos de verificación local
+
+```bash
+# Web — el `next build` dentro del contenedor de *dev* comparte `.next` con
+# `next dev` y puede fallar con un error de Html/_document irrelevante.
+# El check real es el mismo que CI:
+docker build -f apps/web/Dockerfile.prod \
+  --build-arg NEXT_PUBLIC_API_URL=http://localhost:3001 \
+  -t booking-saas-web:local apps/web
+
+# API e2e (incluye GET /bookings + include)
+docker exec booking-api npm run test:e2e
+```
+
+Demo limpia local (después de `docker-compose down -v`): migrate como `booking_admin`, luego `seed` y `seed:demo` como `booking_app`. Tras un reset de volumen, **cerrar sesión** en el browser (el JWT viejo apunta a UUIDs que ya no existen → 0 sucursales).
+
+## Checklist
+
+- [x] `/book` tiene "← Atrás" salvo el primer paso; al volver se limpian chips/selección de ese paso (las listas no se re-fetch).
+- [x] Click en sucursal del dashboard abre `/book?branchId=` y salta al Paso 2.
+- [x] Header en dashboard y `/book`; ausente en `/login`.
+- [x] Dashboard muestra reservas con nombres, no UUIDs; loading/empty/error.
+- [x] Tras confirmar, "Volver al dashboard".
+- [x] Login con select `tenant-a`/`tenant-b`; "Otro" permite slug libre.
+- [x] Sucursales/reservas no se vuelcan todas: página de 8 + Ver más + buscar (probado con seed visual local).
+- [ ] `npm run test:e2e` (backend) verde tras el `include` — correr antes del push (el test de CLIENT solo afirma `clientId`; el include no debería romperlo).
+- [x] Imagen prod web (`Dockerfile.prod`, mismo job `docker-build`) compila `/book` `/dashboard` `/login` sin warning de Suspense.
+- [ ] Push a GitHub → `lint-and-unit`, `e2e`, `docker-build` verdes (Fase 12 **aún no está en `origin/main`**).
+- [ ] Vercel muestra este front (hace falta push + redeploy).
+
+Cuando el push esté verde y Vercel actualizado, **11-C** (Terraform `not applied`) puede seguir — no antes, y no es más urgente que ver la demo pública con esta UX.

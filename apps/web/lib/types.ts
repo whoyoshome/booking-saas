@@ -50,4 +50,10 @@ export interface Booking {
   startTime: string;
   endTime: string;
   status: 'PENDING' | 'CONFIRMED' | 'CANCELLED' | 'COMPLETED' | 'NO_SHOW';
+  // Present on GET /bookings (list) since the Fase 12 include; POST
+  // /bookings' 201 response does not include these (create() has no
+  // include) — treat as optional, not guaranteed on every response shape.
+  branch?: { name: string };
+  service?: { name: string };
+  staff?: { user: { email: string } };
 }

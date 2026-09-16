@@ -140,6 +140,17 @@ export class BookingsService {
         ...(filters.status ? { status: filters.status } : {}),
         ...(clientId ? { clientId } : {}),
       },
+      // Fase 12 (UX): the web app needs names to display, not raw UUIDs.
+      // Purely additive — every scalar field already returned (id, status,
+      // startTime, endTime, branchId, staffId, serviceId, clientId) is
+      // still present; `include` only adds nested objects alongside them.
+      // No schema/RLS change, no new endpoint — same GET /bookings that
+      // already existed, same tenant-scoped query underneath.
+      include: {
+        branch: { select: { name: true } },
+        service: { select: { name: true } },
+        staff: { include: { user: { select: { email: true } } } },
+      },
       orderBy: { startTime: 'asc' },
     });
   }
