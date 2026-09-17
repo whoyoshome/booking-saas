@@ -507,7 +507,7 @@ function BookPageContent() {
             Reserva creada — estado: {createdBooking.status}
           </p>
           <p className="mt-1 text-sm text-pine-dark">
-            El estado inicial es siempre PENDING; se confirma desde el panel administrativo.
+            El estado inicial es siempre PENDING; el admin la confirma desde el Dashboard.
           </p>
           <div className="mt-4 flex gap-4">
             <button

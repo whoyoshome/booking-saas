@@ -57,3 +57,15 @@ export interface Booking {
   service?: { name: string };
   staff?: { user: { email: string } };
 }
+
+// Mirrors apps/api/src/auth/types/jwt-payload.type.ts's AuthenticatedUser.
+// The frontend has no access to @prisma/client's Role enum (that's a
+// backend-only dependency), so this is a plain string union kept in sync
+// by hand — same trade-off already accepted for Booking['status'] above.
+export type Role = 'SUPER_ADMIN' | 'TENANT_ADMIN' | 'STAFF' | 'CLIENT';
+
+export interface AuthUser {
+  id: string;
+  role: Role;
+  tenantId: string | null;
+}

@@ -32,13 +32,34 @@ const STATUS_STYLE: Record<Booking['status'], string> = {
 const searchInputClass =
   'w-full max-w-xs rounded-md border border-line bg-surface px-3 py-1.5 text-sm placeholder:text-ink-400 focus-visible:border-pine';
 
+const actionButtonClass =
+  'rounded border px-2 py-1 text-xs font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50';
+
+type BookingAction = 'confirm' | 'cancel';
+
 export default function DashboardPage() {
-  const { isAuthenticated, isLoading } = useAuth();
+  const { isAuthenticated, isLoading, user } = useAuth();
   const router = useRouter();
   const [branches, setBranches] = useState<Branch[] | null>(null);
   const [bookings, setBookings] = useState<Booking[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [bookingsError, setBookingsError] = useState<string | null>(null);
+
+  // Who can act on a PENDING booking from this list — mirrors the API's
+  // own @Roles(TENANT_ADMIN, STAFF) on PATCH /bookings/:id/confirm.
+  // /cancel is deliberately more permissive server-side (a CLIENT can
+  // cancel their own booking — see BookingsService.cancel), but that's a
+  // different, not-yet-built surface; this dashboard is the admin/staff
+  // operational view, so it only ever shows these two roles the buttons.
+  const canOperate = user?.role === 'TENANT_ADMIN' || user?.role === 'STAFF';
+
+  // Single in-flight id, not a Set — only one row can realistically be
+  // mid-request at a time from a single click, and disabling every row's
+  // buttons while any one action is in flight (not just the row being
+  // acted on) avoids a second click landing on stale local state while
+  // the first PATCH is still resolving.
+  const [actioningId, setActioningId] = useState<string | null>(null);
+  const [rowError, setRowError] = useState<{ id: string; message: string } | null>(null);
 
   const sortedBookings = useMemo(() => {
     if (!bookings) return [];
@@ -51,6 +72,17 @@ export default function DashboardPage() {
   const filterBooking = useCallback(matchBooking, []);
   const branchPage = usePagedList(branches ?? [], filterBranch);
   const bookingPage = usePagedList(sortedBookings, filterBooking);
+
+  const refreshBookings = useCallback(async () => {
+    try {
+      const res = await apiFetch('/bookings');
+      if (!res.ok) throw new Error(`GET /bookings -> ${res.status}`);
+      setBookings((await res.json()) as Booking[]);
+      setBookingsError(null);
+    } catch (err) {
+      setBookingsError(err instanceof Error ? err.message : 'No se pudo refrescar la lista.');
+    }
+  }, []);
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
@@ -68,13 +100,54 @@ export default function DashboardPage() {
       })
       .catch((err: Error) => setError(err.message));
 
-    apiFetch('/bookings')
-      .then(async (res) => {
-        if (!res.ok) throw new Error(`GET /bookings -> ${res.status}`);
-        setBookings((await res.json()) as Booking[]);
-      })
-      .catch((err: Error) => setBookingsError(err.message));
-  }, [isAuthenticated]);
+    refreshBookings();
+  }, [isAuthenticated, refreshBookings]);
+
+  // Confirm and cancel share everything except the path segment and the
+  // resulting status, so one handler covers both instead of two near-
+  // identical copies.
+  async function handleBookingAction(id: string, action: BookingAction) {
+    setActioningId(id);
+    setRowError(null);
+
+    try {
+      const res = await apiFetch(`/bookings/${id}/${action}`, { method: 'PATCH' });
+
+      if (res.ok) {
+        const nextStatus: Booking['status'] = action === 'confirm' ? 'CONFIRMED' : 'CANCELLED';
+        setBookings((prev) =>
+          prev ? prev.map((b) => (b.id === id ? { ...b, status: nextStatus } : b)) : prev,
+        );
+        return;
+      }
+
+      // 400/404 means our local copy of this row is stale — most likely
+      // someone else (another admin, or the pending-expiry cron) already
+      // moved it out of PENDING between us loading the list and clicking
+      // here. Show the API's own message, then pull the real list instead
+      // of guessing what state it's actually in now.
+      const body = (await res.json().catch(() => ({}))) as {
+        message?: string | string[];
+      };
+      const apiMessage = Array.isArray(body.message)
+        ? body.message.join(' ')
+        : body.message;
+      setRowError({
+        id,
+        message:
+          apiMessage ??
+          `No se pudo ${action === 'confirm' ? 'confirmar' : 'cancelar'} (${res.status}).`,
+      });
+      await refreshBookings();
+    } catch (err) {
+      setRowError({
+        id,
+        message: err instanceof Error ? err.message : 'Error de red — intentá de nuevo.',
+      });
+    } finally {
+      setActioningId(null);
+    }
+  }
 
   if (isLoading || !isAuthenticated) {
     return <main className="p-8 text-sm text-ink-600">Cargando…</main>;
@@ -182,7 +255,10 @@ export default function DashboardPage() {
           <>
             <ul className="divide-y divide-line rounded-lg border border-line">
               {bookingPage.shown.map((b) => (
-                <li key={b.id} className="flex items-center justify-between gap-3 p-3 text-sm">
+                <li
+                  key={b.id}
+                  className="flex flex-col gap-2 p-3 text-sm sm:flex-row sm:items-center sm:justify-between"
+                >
                   <div>
                     <p className="font-medium text-ink">{b.service?.name ?? b.serviceId}</p>
                     <p className="text-ink-600">
@@ -190,11 +266,41 @@ export default function DashboardPage() {
                     </p>
                     <p className="text-ink-600">{new Date(b.startTime).toLocaleString()}</p>
                   </div>
-                  <span
-                    className={`shrink-0 rounded px-2 py-0.5 text-xs font-medium ${STATUS_STYLE[b.status]}`}
-                  >
-                    {b.status}
-                  </span>
+
+                  <div className="flex shrink-0 flex-col items-start gap-1.5 sm:items-end">
+                    <span
+                      className={`rounded px-2 py-0.5 text-xs font-medium ${STATUS_STYLE[b.status]}`}
+                    >
+                      {b.status}
+                    </span>
+
+                    {canOperate && b.status === 'PENDING' && (
+                      <div className="flex gap-2">
+                        <button
+                          type="button"
+                          onClick={() => handleBookingAction(b.id, 'confirm')}
+                          disabled={actioningId !== null}
+                          className={`${actionButtonClass} border-pine text-pine hover:bg-pine-bg`}
+                        >
+                          {actioningId === b.id ? '…' : 'Confirmar'}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleBookingAction(b.id, 'cancel')}
+                          disabled={actioningId !== null}
+                          className={`${actionButtonClass} border-rust text-rust hover:bg-rust-bg`}
+                        >
+                          {actioningId === b.id ? '…' : 'Cancelar'}
+                        </button>
+                      </div>
+                    )}
+
+                    {rowError?.id === b.id && (
+                      <p className="max-w-[16rem] text-right text-xs text-rust-dark">
+                        {rowError.message}
+                      </p>
+                    )}
+                  </div>
                 </li>
               ))}
             </ul>
