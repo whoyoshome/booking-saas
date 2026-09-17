@@ -6,6 +6,7 @@ import {
   HttpCode,
   HttpStatus,
   UseGuards,
+  NotFoundException,
 } from '@nestjs/common';
 import { Role } from '@prisma/client';
 import { Throttle } from '@nestjs/throttler';
@@ -59,51 +60,33 @@ export class AuthController {
     return user;
   }
 
-  // Proof that the authorization (RBAC) pipeline works: only SUPER_ADMIN and
-  // TENANT_ADMIN can reach this endpoint. This is a deliberate placeholder —
-  // real admin endpoints (tenants, branches, staff) arrive in later phases and
-  // will use exactly this same guard pattern.
+  // Isolation diagnostics used by e2e (tenant-isolation.e2e-spec). Hidden
+  // in production so a live demo JWT cannot enumerate session GUC values.
   @Get('admin-only')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(Role.SUPER_ADMIN, Role.TENANT_ADMIN)
   adminOnly(@CurrentUser() user: AuthenticatedUser) {
+    this.assertDiagnosticsEnabled();
     return {
-      message: 'Si ves esto, RBAC está funcionando correctamente.',
+      message: 'RBAC pipeline is wired.',
       requestedBy: user,
     };
   }
 
-  // Step 3 demo endpoint: proves TenantGuard is wired correctly.
-  // SUPER_ADMIN passes with tenantId: null (explicit bypass). Any other
-  // authenticated role must carry a valid tenantId to reach this point.
-  // This route still returns the raw JWT-derived user — it does NOT prove
-  // data isolation, only that the tenant-context gate itself works. Real
-  // row-level isolation arrives with RLS in Step 5.
   @Get('tenant-context')
   @TenantScoped()
   tenantContext(@CurrentUser() user: AuthenticatedUser) {
+    this.assertDiagnosticsEnabled();
     return {
       message: 'TenantGuard passed.',
       user,
     };
   }
 
-  // Step 4 diagnostic endpoint — TEMPORARY, meant to be removed once a real
-  // tenant-scoped domain module (branches, bookings, etc.) exists with its
-  // own repository. Its only purpose is to prove, end to end, that
-  // TenantContextInterceptor actually sets the PostgreSQL session variable
-  // inside the transaction that the route handler runs in — by reading it
-  // straight back with current_setting() and comparing it against the
-  // tenantId already available from the JWT.
-  //
-  // Injecting PrismaService directly into a controller is not the pattern
-  // we want long-term (see the repository-layering discussion for the
-  // bookings module in the Phase 0 Technical Plan) — it's acceptable here
-  // only because this route's entire job is to inspect the database
-  // connection itself, not to implement a real use case.
   @Get('db-tenant-check')
   @TenantScoped()
   async dbTenantCheck(@CurrentUser() user: AuthenticatedUser) {
+    this.assertDiagnosticsEnabled();
     // NULLIF(..., '') is required, not cosmetic: current_setting(name, true)
     // returns '' (empty string), not SQL NULL, when the session variable was
     // never set. Without NULLIF, the JSON response would show "" instead of
@@ -121,5 +104,11 @@ export class AuthController {
       postgresSessionTenantId: rows[0]?.tenant_id ?? null,
       postgresSessionIsSuperAdmin: rows[0]?.is_super_admin ?? null,
     };
+  }
+
+  private assertDiagnosticsEnabled(): void {
+    if (process.env.NODE_ENV === 'production') {
+      throw new NotFoundException();
+    }
   }
 }

@@ -7,6 +7,7 @@ import {
   Body,
   Param,
   Query,
+  ParseUUIDPipe,
   HttpCode,
   HttpStatus,
   ForbiddenException,
@@ -38,25 +39,30 @@ export class StaffSchedulesController {
   }
 
   @Get()
-  findAll(@Query('staffId') staffId?: string) {
+  findAll(
+    @Query('staffId', new ParseUUIDPipe({ optional: true })) staffId?: string,
+  ) {
     return this.staffSchedulesService.findAll(staffId);
   }
 
   @Get(':id')
-  findOne(@Param('id') id: string) {
+  findOne(@Param('id', ParseUUIDPipe) id: string) {
     return this.staffSchedulesService.findOne(id);
   }
 
   @Patch(':id')
   @Roles(Role.TENANT_ADMIN)
-  update(@Param('id') id: string, @Body() dto: UpdateStaffScheduleDto) {
+  update(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: UpdateStaffScheduleDto,
+  ) {
     return this.staffSchedulesService.update(id, dto);
   }
 
   @Delete(':id')
   @Roles(Role.TENANT_ADMIN)
   @HttpCode(HttpStatus.NO_CONTENT)
-  async remove(@Param('id') id: string): Promise<void> {
+  async remove(@Param('id', ParseUUIDPipe) id: string): Promise<void> {
     await this.staffSchedulesService.remove(id);
   }
 }

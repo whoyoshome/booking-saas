@@ -29,13 +29,62 @@ const PREVIOUS_STEP: Partial<Record<Step, Step>> = {
 };
 
 const STEP_LABEL: Record<Step, string> = {
-  branch: '1. Elegí una sucursal',
-  service: '2. Elegí un servicio',
-  staff: '3. Elegí con quién',
-  slot: '4. Elegí fecha y horario',
-  confirm: '5. Confirmar',
+  branch: 'Sucursal',
+  service: 'Servicio',
+  staff: 'Con quién',
+  slot: 'Horario',
+  confirm: 'Confirmar',
   done: 'Listo',
 };
+
+// The wizard's steps in display order — this IS a genuine sequence (each
+// step depends on the previous choice), so a numbered progress treatment
+// is earned here, unlike sprinkling 01/02/03 markers on content that
+// isn't actually ordered.
+const WIZARD_STEPS: Step[] = ['branch', 'service', 'staff', 'slot', 'confirm'];
+
+function StepProgress({ step }: { step: Step }) {
+  if (step === 'done') return null;
+  const currentIndex = WIZARD_STEPS.indexOf(step);
+
+  return (
+    <ol className="mb-6 flex items-center gap-2">
+      {WIZARD_STEPS.map((s, i) => {
+        const state = i < currentIndex ? 'done' : i === currentIndex ? 'current' : 'upcoming';
+        return (
+          <li key={s} className="flex flex-1 items-center gap-2">
+            <span
+              className={
+                'flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-medium ' +
+                (state === 'current'
+                  ? 'bg-pine text-white'
+                  : state === 'done'
+                    ? 'bg-pine-bg text-pine-dark'
+                    : 'bg-line text-ink-400')
+              }
+            >
+              {i + 1}
+            </span>
+            <span
+              className={
+                'hidden text-xs font-medium sm:inline ' +
+                (state === 'upcoming' ? 'text-ink-400' : 'text-ink')
+              }
+            >
+              {STEP_LABEL[s]}
+            </span>
+            {i < WIZARD_STEPS.length - 1 && (
+              <span
+                className={'h-px flex-1 ' + (state === 'done' ? 'bg-pine' : 'bg-line')}
+                aria-hidden
+              />
+            )}
+          </li>
+        );
+      })}
+    </ol>
+  );
+}
 
 // Defaults to today's real date. Test suites use a fixed reference Monday
 // (2026-09-14) so slot boundaries are deterministic; a live public demo
@@ -55,6 +104,10 @@ function formatPrice(price: string | number): string {
   if (Number.isNaN(n)) return String(price);
   return `$${n.toLocaleString('es')}`;
 }
+
+const listItemClass =
+  'w-full rounded-lg border border-line bg-surface p-3 text-left transition-colors hover:border-pine';
+const chipClass = 'rounded bg-line px-2 py-1 text-ink-600';
 
 function BookPageContent() {
   const { isAuthenticated, isLoading } = useAuth();
@@ -118,7 +171,7 @@ function BookPageContent() {
     apiFetch(`/services?branchId=${branch.id}`)
       .then(async (res) => {
         if (!res.ok) throw new Error(`GET /services -> ${res.status}`);
-        setServices(await res.json());
+        setServices((await res.json()) as Service[]);
         setStep('service');
       })
       .catch((err: Error) => setError(err.message));
@@ -163,10 +216,10 @@ function BookPageContent() {
     apiFetch(`/availability?staffId=${staffId}&serviceId=${selectedService.id}&date=${forDate}`)
       .then(async (res) => {
         if (!res.ok) {
-          const body = await res.json().catch(() => ({}));
+          const body = (await res.json().catch(() => ({}))) as { message?: string };
           throw new Error(body.message ?? `GET /availability -> ${res.status}`);
         }
-        setAvailability(await res.json());
+        setAvailability((await res.json()) as AvailabilityResponse);
       })
       .catch((err: Error) => setError(err.message));
   }
@@ -229,7 +282,7 @@ function BookPageContent() {
     setSubmitting(false);
 
     if (res.status === 201) {
-      setCreatedBooking(await res.json());
+      setCreatedBooking((await res.json()) as Booking);
       setStep('done');
       return;
     }
@@ -246,7 +299,7 @@ function BookPageContent() {
       return;
     }
 
-    const body = await res.json().catch(() => ({}));
+    const body = (await res.json().catch(() => ({}))) as { message?: string };
     setError(body.message ?? `No se pudo crear la reserva (${res.status}).`);
   }
 
@@ -262,7 +315,7 @@ function BookPageContent() {
   }
 
   if (isLoading || !isAuthenticated) {
-    return <main className="p-8">Cargando...</main>;
+    return <main className="p-8 text-sm text-ink-600">Cargando…</main>;
   }
 
   const q = branchQuery.trim().toLowerCase();
@@ -277,33 +330,38 @@ function BookPageContent() {
       <Header />
 
       <div className="mb-4 flex items-center justify-between">
-        <h1 className="text-xl font-semibold">Nueva reserva</h1>
+        <h1 className="font-display text-xl font-semibold text-ink">Nueva reserva</h1>
         {/* P0 — was completely absent: no way back to a previous step, no
             way out except the browser's own back button. */}
         {PREVIOUS_STEP[step] && (
-          <button onClick={goBack} className="text-sm text-gray-500 underline hover:text-black">
+          <button
+            onClick={goBack}
+            className="text-sm font-medium text-ink-600 underline underline-offset-2 hover:text-ink"
+          >
             ← Atrás
           </button>
         )}
       </div>
 
-      <div className="mb-4 flex flex-wrap gap-2 text-sm text-gray-500">
+      <StepProgress step={step} />
+
+      <div className="mb-4 flex flex-wrap gap-2 text-sm">
         {selectedBranch && step !== 'branch' && (
-          <span className="rounded bg-gray-100 px-2 py-1">{selectedBranch.name}</span>
+          <span className={chipClass}>{selectedBranch.name}</span>
         )}
         {selectedService && (step === 'staff' || step === 'slot' || step === 'confirm' || step === 'done') && (
-          <span className="rounded bg-gray-100 px-2 py-1">{selectedService.name}</span>
+          <span className={chipClass}>{selectedService.name}</span>
         )}
         {selectedStaff && (step === 'slot' || step === 'confirm' || step === 'done') && (
-          <span className="rounded bg-gray-100 px-2 py-1">{selectedStaff.user.email}</span>
+          <span className={chipClass}>{selectedStaff.user.email}</span>
         )}
       </div>
 
-      {error && <p className="mb-4 rounded bg-red-50 p-3 text-sm text-red-600">{error}</p>}
+      {error && <p className="mb-4 rounded bg-rust-bg p-3 text-sm text-rust-dark">{error}</p>}
 
       {step === 'branch' && (
         <section>
-          <h2 className="mb-2 font-medium">{STEP_LABEL.branch}</h2>
+          <h2 className="mb-2 font-medium text-ink">{STEP_LABEL.branch}</h2>
           {branches.length > 8 && (
             <input
               type="search"
@@ -313,27 +371,24 @@ function BookPageContent() {
                 setBranchVisible(8);
               }}
               placeholder="Buscar sucursal…"
-              className="mb-3 w-full rounded-md border px-3 py-1.5 text-sm"
+              className="mb-3 w-full rounded-md border border-line bg-surface px-3 py-1.5 text-sm placeholder:text-ink-400 focus-visible:border-pine"
             />
           )}
           <ul className="space-y-2">
             {shownBranches.map((b) => (
               <li key={b.id}>
-                <button
-                  onClick={() => chooseBranch(b)}
-                  className="w-full rounded-lg border p-3 text-left hover:bg-gray-50"
-                >
+                <button onClick={() => chooseBranch(b)} className={listItemClass}>
                   {b.name}
                 </button>
               </li>
             ))}
-            {branches.length === 0 && <p className="text-sm text-gray-500">Cargando...</p>}
+            {branches.length === 0 && <p className="text-sm text-ink-600">Cargando…</p>}
           </ul>
           {branchRemaining > 0 && (
             <button
               type="button"
               onClick={() => setBranchVisible((n) => n + 8)}
-              className="mt-3 w-full rounded-md border py-2 text-sm hover:bg-gray-50"
+              className="mt-3 w-full rounded-md border border-line py-2 text-sm font-medium text-ink-600 hover:bg-surface"
             >
               Ver más ({branchRemaining} restantes)
             </button>
@@ -343,23 +398,20 @@ function BookPageContent() {
 
       {step === 'service' && (
         <section>
-          <h2 className="mb-2 font-medium">{STEP_LABEL.service}</h2>
+          <h2 className="mb-2 font-medium text-ink">{STEP_LABEL.service}</h2>
           <ul className="space-y-2">
             {services.map((s) => (
               <li key={s.id}>
-                <button
-                  onClick={() => chooseService(s)}
-                  className="w-full rounded border p-3 text-left hover:bg-gray-50"
-                >
-                  <p>{s.name}</p>
-                  <p className="text-sm text-gray-500">
+                <button onClick={() => chooseService(s)} className={listItemClass}>
+                  <p className="text-ink">{s.name}</p>
+                  <p className="text-sm text-ink-600">
                     {s.durationMinutes} min · {formatPrice(s.price)}
                   </p>
                 </button>
               </li>
             ))}
             {services.length === 0 && (
-              <p className="text-sm text-gray-500">Esta sucursal no tiene servicios todavía.</p>
+              <p className="text-sm text-ink-600">Esta sucursal no tiene servicios todavía.</p>
             )}
           </ul>
         </section>
@@ -367,20 +419,17 @@ function BookPageContent() {
 
       {step === 'staff' && (
         <section>
-          <h2 className="mb-2 font-medium">{STEP_LABEL.staff}</h2>
+          <h2 className="mb-2 font-medium text-ink">{STEP_LABEL.staff}</h2>
           <ul className="space-y-2">
             {staffList.map((s) => (
               <li key={s.id}>
-                <button
-                  onClick={() => chooseStaff(s)}
-                  className="w-full rounded border p-3 text-left hover:bg-gray-50"
-                >
-                  {s.user.email}
+                <button onClick={() => chooseStaff(s)} className={listItemClass}>
+                  <span className="text-ink">{s.user.email}</span>
                 </button>
               </li>
             ))}
             {staffList.length === 0 && (
-              <p className="text-sm text-gray-500">
+              <p className="text-sm text-ink-600">
                 Nadie en esta sucursal está calificado para este servicio todavía.
               </p>
             )}
@@ -390,27 +439,27 @@ function BookPageContent() {
 
       {step === 'slot' && (
         <section>
-          <h2 className="mb-2 font-medium">{STEP_LABEL.slot}</h2>
+          <h2 className="mb-2 font-medium text-ink">{STEP_LABEL.slot}</h2>
           <input
             type="date"
             value={date}
             onChange={(e) => handleDateChange(e.target.value)}
-            className="mb-4 rounded border px-3 py-2"
+            className="mb-4 rounded border border-line bg-surface px-3 py-2 text-ink focus-visible:border-pine"
           />
 
-          {availability === null && <p className="text-sm text-gray-500">Cargando horarios...</p>}
+          {availability === null && <p className="text-sm text-ink-600">Cargando horarios…</p>}
 
           {availability !== null && (
             <>
               {availability.slots.length === 0 && (
-                <p className="text-sm text-gray-500">Sin horarios disponibles este día.</p>
+                <p className="text-sm text-ink-600">Sin horarios disponibles este día.</p>
               )}
               <div className="grid grid-cols-3 gap-2">
                 {availability.slots.map((slot) => (
                   <button
                     key={slot.startUtc}
                     onClick={() => chooseSlot(slot)}
-                    className="rounded border px-3 py-2 text-sm hover:bg-gray-50"
+                    className="rounded border border-line bg-surface px-3 py-2 text-sm font-medium text-ink transition-colors hover:border-pine hover:bg-pine-bg"
                   >
                     {slot.startLocal}
                   </button>
@@ -423,39 +472,54 @@ function BookPageContent() {
 
       {step === 'confirm' && selectedSlot && (
         <section>
-          <h2 className="mb-2 font-medium">{STEP_LABEL.confirm}</h2>
-          <div className="mb-4 space-y-1 rounded border p-4 text-sm">
-            <p><strong>Sucursal:</strong> {selectedBranch?.name}</p>
-            <p><strong>Servicio:</strong> {selectedService?.name}</p>
-            <p><strong>Con:</strong> {selectedStaff?.user.email}</p>
-            <p><strong>Fecha:</strong> {date}</p>
+          <h2 className="mb-2 font-medium text-ink">{STEP_LABEL.confirm}</h2>
+          <div className="mb-4 space-y-1 rounded border border-line bg-surface p-4 text-sm shadow-panel">
             <p>
-              <strong>Horario:</strong> {selectedSlot.startLocal} - {selectedSlot.endLocal}
+              <span className="text-ink-600">Sucursal:</span> {selectedBranch?.name}
+            </p>
+            <p>
+              <span className="text-ink-600">Servicio:</span> {selectedService?.name}
+            </p>
+            <p>
+              <span className="text-ink-600">Con:</span> {selectedStaff?.user.email}
+            </p>
+            <p>
+              <span className="text-ink-600">Fecha:</span> {date}
+            </p>
+            <p>
+              <span className="text-ink-600">Horario:</span> {selectedSlot.startLocal} -{' '}
+              {selectedSlot.endLocal}
             </p>
           </div>
           <button
             onClick={confirmBooking}
             disabled={submitting}
-            className="w-full rounded bg-black py-2 text-white disabled:opacity-50"
+            className="w-full rounded bg-pine py-2.5 font-medium text-white transition-colors hover:bg-pine-dark disabled:cursor-not-allowed disabled:opacity-50"
           >
-            {submitting ? 'Reservando...' : 'Confirmar reserva'}
+            {submitting ? 'Reservando…' : 'Confirmar reserva'}
           </button>
         </section>
       )}
 
       {step === 'done' && createdBooking && (
-        <section className="rounded border border-green-200 bg-green-50 p-4">
-          <p className="font-medium text-green-800">
+        <section className="rounded border border-pine bg-pine-bg p-4">
+          <p className="font-medium text-pine-dark">
             Reserva creada — estado: {createdBooking.status}
           </p>
-          <p className="mt-1 text-sm text-green-700">
+          <p className="mt-1 text-sm text-pine-dark">
             El estado inicial es siempre PENDING; se confirma desde el panel administrativo.
           </p>
           <div className="mt-4 flex gap-4">
-            <button onClick={reset} className="text-sm underline">
+            <button
+              onClick={reset}
+              className="text-sm font-medium text-pine-dark underline underline-offset-2"
+            >
               Hacer otra reserva
             </button>
-            <Link href="/dashboard" className="text-sm underline">
+            <Link
+              href="/dashboard"
+              className="text-sm font-medium text-pine-dark underline underline-offset-2"
+            >
               Volver al dashboard
             </Link>
           </div>
@@ -470,11 +534,11 @@ function BookPageContent() {
 // as a page's default export in App Router — without this, `next build`
 // either fails or silently de-opts the whole route to client-only
 // rendering with a build warning. The fallback is intentionally the same
-// "Cargando..." used elsewhere for the auth-check loading state, so there
+// "Cargando…" used elsewhere for the auth-check loading state, so there
 // is no visible difference to the brief Suspense flash.
 export default function BookPage() {
   return (
-    <Suspense fallback={<main className="p-8">Cargando...</main>}>
+    <Suspense fallback={<main className="p-8 text-sm text-ink-600">Cargando…</main>}>
       <BookPageContent />
     </Suspense>
   );

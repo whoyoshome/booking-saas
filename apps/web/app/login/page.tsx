@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, type FormEvent } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, type FormEvent, Suspense } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '../../lib/auth-context';
 
 const CUSTOM_OPTION = '__custom__';
@@ -18,9 +18,28 @@ const DEMO_OPTIONS = [
   { value: CUSTOM_OPTION, label: 'Otro (escribir slug manualmente)' },
 ];
 
-export default function LoginPage() {
+function FieldLabel({ htmlFor, children }: { htmlFor: string; children: React.ReactNode }) {
+  return (
+    <label htmlFor={htmlFor} className="block text-sm font-medium text-ink-600">
+      {children}
+    </label>
+  );
+}
+
+const inputClass =
+  'w-full rounded border border-line bg-surface px-3 py-2 text-ink placeholder:text-ink-400 focus-visible:border-pine';
+
+function postLoginPath(from: string | null): string {
+  if (from && (from.startsWith('/dashboard') || from.startsWith('/book'))) {
+    return from;
+  }
+  return '/dashboard';
+}
+
+function LoginPageContent() {
   const { login } = useAuth();
   const router = useRouter();
+  const searchParams = useSearchParams();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -37,7 +56,7 @@ export default function LoginPage() {
     setSubmitting(true);
     try {
       await login(email, password, effectiveSlug || undefined);
-      router.push('/dashboard');
+      router.push(postLoginPath(searchParams.get('from')));
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Login failed.');
     } finally {
@@ -47,18 +66,24 @@ export default function LoginPage() {
 
   return (
     <main className="flex min-h-screen items-center justify-center p-8">
-      <form onSubmit={handleSubmit} className="w-full max-w-sm space-y-4 rounded border p-6">
-        <h1 className="text-xl font-semibold">Booking SaaS</h1>
+      <form
+        onSubmit={handleSubmit}
+        className="w-full max-w-sm space-y-5 rounded border border-line bg-surface p-8 shadow-panel"
+      >
+        <div>
+          <h1 className="font-display text-xl font-semibold text-ink">
+            Booking<span className="text-pine">SaaS</span>
+          </h1>
+          <p className="mt-1 text-sm text-ink-600">Ingresá para gestionar tus reservas.</p>
+        </div>
 
         <div className="space-y-1">
-          <label htmlFor="tenantOption" className="block text-sm font-medium">
-            Tenant
-          </label>
+          <FieldLabel htmlFor="tenantOption">Tenant</FieldLabel>
           <select
             id="tenantOption"
             value={tenantOption}
             onChange={(e) => setTenantOption(e.target.value)}
-            className="w-full rounded border px-3 py-2"
+            className={inputClass}
           >
             {DEMO_OPTIONS.map((opt) => (
               <option key={opt.value} value={opt.value}>
@@ -70,58 +95,62 @@ export default function LoginPage() {
 
         {tenantOption === CUSTOM_OPTION && (
           <div className="space-y-1">
-            <label htmlFor="customSlug" className="block text-sm font-medium">
-              Tenant slug
-            </label>
+            <FieldLabel htmlFor="customSlug">Tenant slug</FieldLabel>
             <input
               id="customSlug"
               type="text"
               value={customSlug}
               onChange={(e) => setCustomSlug(e.target.value)}
               placeholder="mi-tenant"
-              className="w-full rounded border px-3 py-2"
+              className={inputClass}
             />
           </div>
         )}
 
         <div className="space-y-1">
-          <label htmlFor="email" className="block text-sm font-medium">
-            Email
-          </label>
+          <FieldLabel htmlFor="email">Email</FieldLabel>
           <input
             id="email"
             type="email"
             required
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            className="w-full rounded border px-3 py-2"
+            className={inputClass}
           />
         </div>
 
         <div className="space-y-1">
-          <label htmlFor="password" className="block text-sm font-medium">
-            Password
-          </label>
+          <FieldLabel htmlFor="password">Password</FieldLabel>
           <input
             id="password"
             type="password"
             required
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            className="w-full rounded border px-3 py-2"
+            className={inputClass}
           />
         </div>
 
-        {error && <p className="text-sm text-red-600">{error}</p>}
+        {error && (
+          <p className="rounded bg-rust-bg px-3 py-2 text-sm text-rust-dark">{error}</p>
+        )}
 
         <button
           type="submit"
           disabled={submitting}
-          className="w-full rounded bg-black py-2 text-white disabled:opacity-50"
+          className="w-full rounded bg-pine py-2.5 font-medium text-white transition-colors hover:bg-pine-dark disabled:cursor-not-allowed disabled:opacity-50"
         >
-          {submitting ? 'Ingresando...' : 'Ingresar'}
+          {submitting ? 'Ingresando…' : 'Ingresar'}
         </button>
       </form>
     </main>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={<main className="p-8 text-sm text-ink-600">Cargando…</main>}>
+      <LoginPageContent />
+    </Suspense>
   );
 }

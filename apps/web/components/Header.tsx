@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useAuth } from '../lib/auth-context';
 
 /**
@@ -10,29 +11,33 @@ import { useAuth } from '../lib/auth-context';
  */
 export function Header() {
   const { logout } = useAuth();
+  const router = useRouter();
 
   return (
-    <header className="mb-6 flex flex-wrap items-center justify-between gap-3 border-b pb-4">
-      <Link href="/dashboard" className="text-base font-semibold">
-        Booking SaaS
+    <header className="mb-8 flex flex-wrap items-center justify-between gap-3 border-b border-line pb-4">
+      <Link href="/dashboard" className="font-display text-lg font-semibold text-ink">
+        Booking<span className="text-pine">SaaS</span>
       </Link>
       <nav className="flex flex-wrap items-center gap-2 text-sm">
         <Link
           href="/dashboard"
-          className="rounded-md border border-gray-300 px-3 py-1.5 text-gray-800 hover:bg-gray-50"
+          className="rounded px-3 py-1.5 font-medium text-ink-600 transition-colors hover:bg-paper hover:text-ink"
         >
           Dashboard
         </Link>
         <Link
           href="/book"
-          className="rounded-md bg-black px-3 py-1.5 text-white hover:bg-gray-800"
+          className="rounded bg-pine px-3 py-1.5 font-medium text-white transition-colors hover:bg-pine-dark"
         >
           Nueva reserva
         </Link>
         <button
           type="button"
-          onClick={logout}
-          className="rounded-md px-3 py-1.5 text-gray-600 hover:bg-gray-100"
+          onClick={() => {
+            logout();
+            router.replace('/login');
+          }}
+          className="rounded px-3 py-1.5 font-medium text-ink-600 transition-colors hover:bg-paper hover:text-ink"
         >
           Cerrar sesión
         </button>

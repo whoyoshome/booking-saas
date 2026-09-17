@@ -1,17 +1,11 @@
-'use client';
+import { redirect } from 'next/navigation';
 
-import { useEffect } from 'react';
-import { useRouter } from 'next/navigation';
-
-// Fase 7: replaces the Fase 1 Docker-networking health-check demo (moved
-// its purpose — confirming web <-> api connectivity — to the dashboard's
-// live GET /branches call, which now does that AND is actually useful).
+// middleware.ts already redirects every request to "/" before this page's
+// body ever runs (based on the bk_session cookie — see middleware.ts for
+// what that cookie does and does not guarantee). This is a real Server
+// Component, kept only as a defensive fallback in case the middleware
+// matcher config ever changes and a request reaches this route directly —
+// cheap insurance, not the primary routing mechanism.
 export default function Home() {
-  const router = useRouter();
-
-  useEffect(() => {
-    router.replace('/login');
-  }, [router]);
-
-  return null;
+  redirect('/login');
 }

@@ -19,6 +19,17 @@ Password for all accounts: `ChangeMe123!`
 
 Walkthrough: Tenant A → **Sucursal Centro** → New booking → service, staff, weekday slot → confirm. Tenant B has a different catalog and timezone (`America/Mexico_City`).
 
+## Architecture
+
+```mermaid
+flowchart LR
+  Browser["Next.js 14 (Vercel / Docker)"] --> API["NestJS API (Render / Docker)"]
+  API --> PG["PostgreSQL 16\nFORCE RLS + SET LOCAL"]
+  API --> Redis["Redis / Upstash\nrate limit + cache"]
+```
+
+Request path for tenant data: JWT → `TenantGuard` → `TenantContextInterceptor` opens a transaction, `SET LOCAL app.current_tenant_id` (or `app.is_super_admin` for platform admins), then repositories query through `PrismaService.client` (AsyncLocalStorage). The runtime DB role is `booking_app` (subject to RLS); `booking_admin` is migrations-only.
+
 ## Stack
 
 NestJS · Prisma · PostgreSQL 16 (RLS, `booking_admin` / `booking_app`) · Redis · Next.js 14 · GitHub Actions (lint, unit, e2e, production images)
@@ -32,6 +43,8 @@ docker compose up --build
 
 Web: http://localhost:3000 · API: http://localhost:3001/health
 
+Use the same demo emails and password as above. After a volume wipe (`docker compose down -v`), run migrations as `booking_admin` then seed before logging in with an old JWT.
+
 ## Repository
 
 ```
@@ -43,4 +56,5 @@ docs/       Design notes (optional reading)
 
 Production Dockerfiles: `apps/api/Dockerfile.prod`, `apps/web/Dockerfile.prod`.  
 Intended AWS layout (not deployed): [docs/aws-target.md](docs/aws-target.md).  
-Phase-by-phase engineering notes: [docs/engineering-log.md](docs/engineering-log.md).
+Phase checklists and engineering notes: [docs/engineering-log.md](docs/engineering-log.md).  
+Hosted demo runbook: [docs/deploy-demo.md](docs/deploy-demo.md).

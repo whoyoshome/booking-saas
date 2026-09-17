@@ -6,9 +6,14 @@ import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
-  // Demo/prod free stack (Vercel → Render): set CORS_ORIGIN to the web
-  // origin(s), comma-separated. Local/dev keeps wide open when unset.
+  // Demo/prod: set CORS_ORIGIN to the web origin(s), comma-separated.
+  // Local/dev keeps wide open when unset. Production must set it — an
+  // accidental deploy without CORS_ORIGIN would otherwise reflect any
+  // Origin (Nest's default enableCors()).
   const corsOrigin = process.env.CORS_ORIGIN;
+  if (!corsOrigin && process.env.NODE_ENV === 'production') {
+    throw new Error('CORS_ORIGIN is required when NODE_ENV=production');
+  }
   app.enableCors(
     corsOrigin
       ? {

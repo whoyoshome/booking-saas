@@ -7,7 +7,13 @@ import {
   useState,
   type ReactNode,
 } from 'react';
-import { apiFetch, storeTokens, clearTokens, getStoredTokens } from './api-client';
+import {
+  apiFetch,
+  storeTokens,
+  clearTokens,
+  syncSessionCookie,
+  type TokenPair,
+} from './api-client';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001';
 
@@ -28,8 +34,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // SSR would throw, and the auth state genuinely doesn't exist until the
   // browser has it.
   useEffect(() => {
-    setIsAuthenticated(Boolean(getStoredTokens()));
+    setIsAuthenticated(syncSessionCookie());
     setIsLoading(false);
+
+    const onSessionEnded = () => setIsAuthenticated(false);
+    window.addEventListener('booking-saas-session-ended', onSessionEnded);
+    return () => window.removeEventListener('booking-saas-session-ended', onSessionEnded);
   }, []);
 
   async function login(email: string, password: string, tenantSlug?: string) {
@@ -40,11 +50,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
 
     if (!res.ok) {
-      const body = await res.json().catch(() => ({ message: 'Login failed.' }));
+      const body = (await res.json().catch(() => ({ message: 'Login failed.' }))) as {
+        message?: string;
+      };
       throw new Error(body.message ?? 'Login failed.');
     }
 
-    storeTokens(await res.json());
+    storeTokens((await res.json()) as TokenPair);
     setIsAuthenticated(true);
   }
 

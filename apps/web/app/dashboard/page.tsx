@@ -17,6 +17,21 @@ function matchBooking(b: Booking, q: string) {
   return `${b.service?.name ?? ''} ${b.branch?.name ?? ''} ${b.status}`.toLowerCase().includes(q);
 }
 
+// Status carries meaning through color, not just text — same three-color
+// system used across the app (pine = confirmed/good, gold = pending/needs
+// attention, rust = cancelled/failed). COMPLETED and NO_SHOW share the
+// neutral/rust treatment since they're both "no longer actionable".
+const STATUS_STYLE: Record<Booking['status'], string> = {
+  PENDING: 'bg-gold-bg text-gold-dark',
+  CONFIRMED: 'bg-pine-bg text-pine-dark',
+  CANCELLED: 'bg-rust-bg text-rust-dark',
+  COMPLETED: 'bg-line text-ink-600',
+  NO_SHOW: 'bg-rust-bg text-rust-dark',
+};
+
+const searchInputClass =
+  'w-full max-w-xs rounded-md border border-line bg-surface px-3 py-1.5 text-sm placeholder:text-ink-400 focus-visible:border-pine';
+
 export default function DashboardPage() {
   const { isAuthenticated, isLoading } = useAuth();
   const router = useRouter();
@@ -49,20 +64,20 @@ export default function DashboardPage() {
     apiFetch('/branches')
       .then(async (res) => {
         if (!res.ok) throw new Error(`GET /branches -> ${res.status}`);
-        setBranches(await res.json());
+        setBranches((await res.json()) as Branch[]);
       })
       .catch((err: Error) => setError(err.message));
 
     apiFetch('/bookings')
       .then(async (res) => {
         if (!res.ok) throw new Error(`GET /bookings -> ${res.status}`);
-        setBookings(await res.json());
+        setBookings((await res.json()) as Booking[]);
       })
       .catch((err: Error) => setBookingsError(err.message));
   }, [isAuthenticated]);
 
   if (isLoading || !isAuthenticated) {
-    return <main className="p-8">Cargando...</main>;
+    return <main className="p-8 text-sm text-ink-600">Cargando…</main>;
   }
 
   return (
@@ -70,17 +85,17 @@ export default function DashboardPage() {
       <Header />
 
       {error && (
-        <p className="mb-4 text-red-600">
+        <p className="mb-4 rounded bg-rust-bg px-3 py-2 text-sm text-rust-dark">
           Error consultando la API: {error}
         </p>
       )}
 
-      {branches === null && !error && <p>Cargando sucursales...</p>}
+      {branches === null && !error && <p className="text-sm text-ink-600">Cargando sucursales…</p>}
 
       {branches !== null && (
-        <section className="mb-8">
+        <section className="mb-10">
           <div className="mb-3 flex flex-wrap items-end justify-between gap-3">
-            <h2 className="text-sm font-medium text-gray-500">
+            <h2 className="text-sm font-medium text-ink-600">
               Sucursales ({branchPage.total}
               {branchPage.query ? ` de ${branches.length}` : ''})
             </h2>
@@ -90,7 +105,7 @@ export default function DashboardPage() {
                 value={branchPage.query}
                 onChange={(e) => branchPage.onQueryChange(e.target.value)}
                 placeholder="Buscar sucursal…"
-                className="w-full max-w-xs rounded-md border px-3 py-1.5 text-sm"
+                className={searchInputClass}
               />
             )}
           </div>
@@ -99,13 +114,13 @@ export default function DashboardPage() {
               <li key={b.id}>
                 <Link
                   href={`/book?branchId=${b.id}`}
-                  className="flex h-full items-center justify-between rounded-lg border p-3 hover:bg-gray-50"
+                  className="flex h-full items-center justify-between rounded-lg border border-line bg-surface p-3 transition-colors hover:border-pine"
                 >
                   <span>
-                    <p className="font-medium">{b.name}</p>
-                    <p className="text-sm text-gray-500">{b.timezone}</p>
+                    <p className="font-medium text-ink">{b.name}</p>
+                    <p className="text-sm text-ink-600">{b.timezone}</p>
                   </span>
-                  <span className="text-sm text-gray-400">Reservar →</span>
+                  <span className="text-sm font-medium text-pine">Reservar</span>
                 </Link>
               </li>
             ))}
@@ -114,13 +129,13 @@ export default function DashboardPage() {
             <button
               type="button"
               onClick={branchPage.showMore}
-              className="mt-3 w-full rounded-md border py-2 text-sm hover:bg-gray-50"
+              className="mt-3 w-full rounded-md border border-line py-2 text-sm font-medium text-ink-600 hover:bg-surface"
             >
               Ver más ({branchPage.remaining} restantes)
             </button>
           )}
           {branches.length === 0 && (
-            <p className="text-sm text-gray-500">
+            <p className="text-sm text-ink-600">
               Sin sucursales todavía para este tenant.
             </p>
           )}
@@ -129,7 +144,7 @@ export default function DashboardPage() {
 
       <section>
         <div className="mb-3 flex flex-wrap items-end justify-between gap-3">
-          <h2 className="text-sm font-medium text-gray-500">
+          <h2 className="text-sm font-medium text-ink-600">
             Reservas{bookings !== null ? ` (${bookingPage.total})` : ''}
           </h2>
           {bookings !== null && bookings.length > 8 && (
@@ -138,25 +153,25 @@ export default function DashboardPage() {
               value={bookingPage.query}
               onChange={(e) => bookingPage.onQueryChange(e.target.value)}
               placeholder="Buscar reserva…"
-              className="w-full max-w-xs rounded-md border px-3 py-1.5 text-sm"
+              className={searchInputClass}
             />
           )}
         </div>
 
         {bookingsError && (
-          <p className="text-sm text-red-600">
+          <p className="rounded bg-rust-bg px-3 py-2 text-sm text-rust-dark">
             Error consultando reservas: {bookingsError}
           </p>
         )}
 
         {bookings === null && !bookingsError && (
-          <p className="text-sm text-gray-500">Cargando reservas...</p>
+          <p className="text-sm text-ink-600">Cargando reservas…</p>
         )}
 
         {bookings !== null && bookings.length === 0 && !bookingsError && (
-          <p className="text-sm text-gray-500">
+          <p className="text-sm text-ink-600">
             Sin reservas todavía —{' '}
-            <Link href="/book" className="underline">
+            <Link href="/book" className="font-medium text-pine underline underline-offset-2">
               creá la primera
             </Link>
             .
@@ -165,19 +180,21 @@ export default function DashboardPage() {
 
         {bookings !== null && bookings.length > 0 && (
           <>
-            <ul className="space-y-2">
+            <ul className="divide-y divide-line rounded-lg border border-line">
               {bookingPage.shown.map((b) => (
-                <li key={b.id} className="rounded-lg border p-3 text-sm">
-                  <div className="flex items-center justify-between gap-2">
-                    <p className="font-medium">{b.service?.name ?? b.serviceId}</p>
-                    <span className="rounded bg-gray-100 px-2 py-0.5 text-xs">{b.status}</span>
+                <li key={b.id} className="flex items-center justify-between gap-3 p-3 text-sm">
+                  <div>
+                    <p className="font-medium text-ink">{b.service?.name ?? b.serviceId}</p>
+                    <p className="text-ink-600">
+                      {b.branch?.name ?? b.branchId} · {b.staff?.user.email ?? b.staffId}
+                    </p>
+                    <p className="text-ink-600">{new Date(b.startTime).toLocaleString()}</p>
                   </div>
-                  <p className="text-gray-500">
-                    {b.branch?.name ?? b.branchId} · {b.staff?.user.email ?? b.staffId}
-                  </p>
-                  <p className="text-gray-500">
-                    {new Date(b.startTime).toLocaleString()}
-                  </p>
+                  <span
+                    className={`shrink-0 rounded px-2 py-0.5 text-xs font-medium ${STATUS_STYLE[b.status]}`}
+                  >
+                    {b.status}
+                  </span>
                 </li>
               ))}
             </ul>
@@ -185,7 +202,7 @@ export default function DashboardPage() {
               <button
                 type="button"
                 onClick={bookingPage.showMore}
-                className="mt-3 w-full rounded-md border py-2 text-sm hover:bg-gray-50"
+                className="mt-3 w-full rounded-md border border-line py-2 text-sm font-medium text-ink-600 hover:bg-surface"
               >
                 Ver más ({bookingPage.remaining} restantes)
               </button>

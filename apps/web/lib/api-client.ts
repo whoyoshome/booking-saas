@@ -7,6 +7,38 @@ export interface TokenPair {
 
 const STORAGE_KEY = 'booking_saas_tokens';
 
+// Mirrors token presence for middleware.ts — NOT the token itself, and
+// NOT httpOnly (a client script sets it, so a client script could forge
+// it too). See middleware.ts's design note for exactly what this cookie
+// does and does not guarantee. Matches the refresh token's real lifetime
+// (7 days, JWT_REFRESH_EXPIRES_IN in the API's .env) so the edge redirect
+// and the actual session expire on the same schedule.
+const SESSION_COOKIE = 'bk_session';
+const SESSION_COOKIE_MAX_AGE_SECONDS = 60 * 60 * 24 * 7;
+
+function cookieSecureSuffix(): string {
+  return window.location.protocol === 'https:' ? '; secure' : '';
+}
+
+function setSessionCookie(): void {
+  document.cookie = `${SESSION_COOKIE}=1; path=/; max-age=${SESSION_COOKIE_MAX_AGE_SECONDS}; samesite=lax${cookieSecureSuffix()}`;
+}
+
+function clearSessionCookie(): void {
+  document.cookie = `${SESSION_COOKIE}=; path=/; max-age=0; samesite=lax${cookieSecureSuffix()}`;
+}
+
+/** Keep the edge cookie in sync with tokens already in localStorage (e.g. after this cookie was introduced, or cookies were cleared). */
+export function syncSessionCookie(): boolean {
+  if (typeof window === 'undefined') return false;
+  if (getStoredTokens()) {
+    setSessionCookie();
+    return true;
+  }
+  clearSessionCookie();
+  return false;
+}
+
 export function getStoredTokens(): TokenPair | null {
   if (typeof window === 'undefined') return null;
   const raw = window.localStorage.getItem(STORAGE_KEY);
@@ -20,10 +52,15 @@ export function getStoredTokens(): TokenPair | null {
 
 export function storeTokens(tokens: TokenPair): void {
   window.localStorage.setItem(STORAGE_KEY, JSON.stringify(tokens));
+  setSessionCookie();
 }
 
 export function clearTokens(): void {
   window.localStorage.removeItem(STORAGE_KEY);
+  clearSessionCookie();
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new Event('booking-saas-session-ended'));
+  }
 }
 
 async function refreshTokens(): Promise<TokenPair | null> {
