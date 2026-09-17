@@ -150,6 +150,7 @@ export class BookingsService {
         branch: { select: { name: true } },
         service: { select: { name: true } },
         staff: { include: { user: { select: { email: true } } } },
+        client: { select: { email: true } },
       },
       orderBy: { startTime: 'asc' },
     });

@@ -75,10 +75,27 @@ async function seedTenantWithAdmin(
     },
   });
 
+  const client = await tx.user.upsert({
+    where: {
+      tenant_email_unique: {
+        tenantId: tenant.id,
+        email: 'cliente@tenant.dev',
+      },
+    },
+    update: {},
+    create: {
+      tenantId: tenant.id,
+      email: 'cliente@tenant.dev',
+      passwordHash: await hashPassword(DEFAULT_PASSWORD),
+      role: Role.CLIENT,
+    },
+  });
+
   console.log(
     `Tenant ready: ${tenant.name} (slug: ${tenant.slug}, id: ${tenant.id})`,
   );
   console.log(`  Admin: ${admin.email} / ${DEFAULT_PASSWORD}`);
+  console.log(`  Client: ${client.email} / ${DEFAULT_PASSWORD}`);
 }
 
 async function main() {

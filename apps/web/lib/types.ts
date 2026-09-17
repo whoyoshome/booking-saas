@@ -56,6 +56,7 @@ export interface Booking {
   branch?: { name: string };
   service?: { name: string };
   staff?: { user: { email: string } };
+  client?: { email: string };
 }
 
 // Mirrors apps/api/src/auth/types/jwt-payload.type.ts's AuthenticatedUser.

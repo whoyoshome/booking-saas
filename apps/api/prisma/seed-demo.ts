@@ -152,10 +152,26 @@ async function seedDemoTenant(tx: Prisma.TransactionClient, spec: DemoTenantSpec
     }
   }
 
+  const client = await tx.user.upsert({
+    where: {
+      tenant_email_unique: {
+        tenantId: tenant.id,
+        email: 'cliente@tenant.dev',
+      },
+    },
+    update: {},
+    create: {
+      tenantId: tenant.id,
+      email: 'cliente@tenant.dev',
+      passwordHash: await argon2.hash(DEMO_PASSWORD, { type: argon2.argon2id }),
+      role: Role.CLIENT,
+    },
+  });
+
   console.log(
     `Demo data ready for ${spec.slug}: branch "${branch.name}" (${branch.timezone}), ` +
       `service "${service.name}", staff ${staffUser.email} / ${DEMO_PASSWORD}, ` +
-      `Mon-Fri 09:00-17:00 local.`,
+      `client ${client.email} / ${DEMO_PASSWORD}, Mon-Fri 09:00-17:00 local.`,
   );
 }
 

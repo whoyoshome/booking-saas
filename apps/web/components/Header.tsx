@@ -10,8 +10,19 @@ import { useAuth } from '../lib/auth-context';
  * shouldn't show a logout button or nav links to protected pages.
  */
 export function Header() {
-  const { logout } = useAuth();
+  const { logout, user } = useAuth();
   const router = useRouter();
+
+  const roleLabel =
+    user?.role === 'TENANT_ADMIN'
+      ? 'Admin'
+      : user?.role === 'STAFF'
+        ? 'Staff'
+        : user?.role === 'CLIENT'
+          ? 'Cliente'
+          : user?.role === 'SUPER_ADMIN'
+            ? 'Super admin'
+            : null;
 
   return (
     <header className="mb-8 flex flex-wrap items-center justify-between gap-3 border-b border-line pb-4">
@@ -19,6 +30,11 @@ export function Header() {
         Booking<span className="text-pine">SaaS</span>
       </Link>
       <nav className="flex flex-wrap items-center gap-2 text-sm">
+        {roleLabel && (
+          <span className="rounded bg-line px-2 py-1 text-xs font-medium text-ink-600">
+            {roleLabel}
+          </span>
+        )}
         <Link
           href="/dashboard"
           className="rounded px-3 py-1.5 font-medium text-ink-600 transition-colors hover:bg-paper hover:text-ink"

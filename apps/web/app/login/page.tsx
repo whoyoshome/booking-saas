@@ -74,7 +74,9 @@ function LoginPageContent() {
           <h1 className="font-display text-xl font-semibold text-ink">
             Booking<span className="text-pine">SaaS</span>
           </h1>
-          <p className="mt-1 text-sm text-ink-600">Ingresá para gestionar tus reservas.</p>
+          <p className="mt-1 text-sm text-ink-600">
+            El cliente pide el turno. El admin o el staff lo aceptan o lo rechazan.
+          </p>
         </div>
 
         <div className="space-y-1">
@@ -117,6 +119,24 @@ function LoginPageContent() {
             onChange={(e) => setEmail(e.target.value)}
             className={inputClass}
           />
+          {tenantOption !== CUSTOM_OPTION && tenantOption !== '' && (
+            <div className="flex flex-wrap gap-2 pt-1">
+              <button
+                type="button"
+                onClick={() => setEmail('cliente@tenant.dev')}
+                className="text-xs font-medium text-pine underline underline-offset-2"
+              >
+                Cuenta cliente
+              </button>
+              <button
+                type="button"
+                onClick={() => setEmail('admin@tenant.dev')}
+                className="text-xs font-medium text-pine underline underline-offset-2"
+              >
+                Cuenta admin
+              </button>
+            </div>
+          )}
         </div>
 
         <div className="space-y-1">

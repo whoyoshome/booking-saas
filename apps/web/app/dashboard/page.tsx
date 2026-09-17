@@ -14,7 +14,7 @@ function matchBranch(b: Branch, q: string) {
 }
 
 function matchBooking(b: Booking, q: string) {
-  return `${b.service?.name ?? ''} ${b.branch?.name ?? ''} ${b.status}`.toLowerCase().includes(q);
+  return `${b.service?.name ?? ''} ${b.branch?.name ?? ''} ${b.status} ${b.client?.email ?? ''}`.toLowerCase().includes(q);
 }
 
 // Status carries meaning through color, not just text — same three-color
@@ -52,6 +52,7 @@ export default function DashboardPage() {
   // different, not-yet-built surface; this dashboard is the admin/staff
   // operational view, so it only ever shows these two roles the buttons.
   const canOperate = user?.role === 'TENANT_ADMIN' || user?.role === 'STAFF';
+  const isClient = user?.role === 'CLIENT';
 
   // Single in-flight id, not a Set — only one row can realistically be
   // mid-request at a time from a single click, and disabling every row's
@@ -63,9 +64,11 @@ export default function DashboardPage() {
 
   const sortedBookings = useMemo(() => {
     if (!bookings) return [];
-    return [...bookings].sort(
-      (a, b) => new Date(b.startTime).getTime() - new Date(a.startTime).getTime(),
-    );
+    return [...bookings].sort((a, b) => {
+      if (a.status === 'PENDING' && b.status !== 'PENDING') return -1;
+      if (b.status === 'PENDING' && a.status !== 'PENDING') return 1;
+      return new Date(b.startTime).getTime() - new Date(a.startTime).getTime();
+    });
   }, [bookings]);
 
   const filterBranch = useCallback(matchBranch, []);
@@ -217,9 +220,21 @@ export default function DashboardPage() {
 
       <section>
         <div className="mb-3 flex flex-wrap items-end justify-between gap-3">
-          <h2 className="text-sm font-medium text-ink-600">
-            Reservas{bookings !== null ? ` (${bookingPage.total})` : ''}
-          </h2>
+          <div>
+            <h2 className="text-sm font-medium text-ink-600">
+              Reservas{bookings !== null ? ` (${bookingPage.total})` : ''}
+            </h2>
+            {canOperate && (
+              <p className="mt-0.5 text-xs text-ink-400">
+                Las pendientes van primero. Solo admin y staff aceptan o rechazan.
+              </p>
+            )}
+            {isClient && (
+              <p className="mt-0.5 text-xs text-ink-400">
+                Pediste el turno. El local lo confirma; vos no ves ese botón.
+              </p>
+            )}
+          </div>
           {bookings !== null && bookings.length > 8 && (
             <input
               type="search"
@@ -264,6 +279,9 @@ export default function DashboardPage() {
                     <p className="text-ink-600">
                       {b.branch?.name ?? b.branchId} · {b.staff?.user.email ?? b.staffId}
                     </p>
+                    {canOperate && b.client?.email && (
+                      <p className="text-ink-600">Cliente: {b.client.email}</p>
+                    )}
                     <p className="text-ink-600">{new Date(b.startTime).toLocaleString()}</p>
                   </div>
 
@@ -282,7 +300,7 @@ export default function DashboardPage() {
                           disabled={actioningId !== null}
                           className={`${actionButtonClass} border-pine text-pine hover:bg-pine-bg`}
                         >
-                          {actioningId === b.id ? '…' : 'Confirmar'}
+                          {actioningId === b.id ? '…' : 'Aceptar'}
                         </button>
                         <button
                           type="button"
@@ -290,9 +308,20 @@ export default function DashboardPage() {
                           disabled={actioningId !== null}
                           className={`${actionButtonClass} border-rust text-rust hover:bg-rust-bg`}
                         >
-                          {actioningId === b.id ? '…' : 'Cancelar'}
+                          {actioningId === b.id ? '…' : 'Rechazar'}
                         </button>
                       </div>
+                    )}
+
+                    {isClient && b.status === 'PENDING' && (
+                      <button
+                        type="button"
+                        onClick={() => handleBookingAction(b.id, 'cancel')}
+                        disabled={actioningId !== null}
+                        className={`${actionButtonClass} border-rust text-rust hover:bg-rust-bg`}
+                      >
+                        {actioningId === b.id ? '…' : 'Cancelar solicitud'}
+                      </button>
                     )}
 
                     {rowError?.id === b.id && (

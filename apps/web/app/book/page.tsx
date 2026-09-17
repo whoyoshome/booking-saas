@@ -110,7 +110,7 @@ const listItemClass =
 const chipClass = 'rounded bg-line px-2 py-1 text-ink-600';
 
 function BookPageContent() {
-  const { isAuthenticated, isLoading } = useAuth();
+  const { isAuthenticated, isLoading, user } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -507,7 +507,9 @@ function BookPageContent() {
             Reserva creada — estado: {createdBooking.status}
           </p>
           <p className="mt-1 text-sm text-pine-dark">
-            El estado inicial es siempre PENDING; el admin la confirma desde el Dashboard.
+            {user?.role === 'CLIENT'
+              ? 'Quedó pendiente. El admin o el staff del local la aceptan o la rechazan; vos no podés confirmarla.'
+              : 'Quedó pendiente. Cerrá sesión, o usá otra cuenta admin/staff, y aceptala desde el Dashboard — no desde este wizard.'}
           </p>
           <div className="mt-4 flex gap-4">
             <button

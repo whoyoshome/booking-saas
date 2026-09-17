@@ -13,11 +13,12 @@ Password for all accounts: `ChangeMe123!`
 
 | Role | Email | Login → Tenant |
 |------|--------|----------------|
-| Clinic | `admin@tenant.dev` | Tenant A — Demo Clínica |
-| Salon | `admin@tenant.dev` | Tenant B — Demo Salón |
+| Cliente (pide turno) | `cliente@tenant.dev` | Tenant A o B |
+| Admin del local (acepta / rechaza) | `admin@tenant.dev` | Tenant A — Demo Clínica / Tenant B — Demo Salón |
+| Staff | `ana@tenant-a.dev` / `carlos@tenant-b.dev` | Tenant A / Tenant B |
 | Platform admin | `admin@bookingsaas.dev` | Super admin |
 
-Walkthrough: Tenant A → **Sucursal Centro** → New booking → service, staff, weekday slot → confirm. Tenant B has a different catalog and timezone (`America/Mexico_City`).
+Walkthrough: login as **cliente** → Tenant A → **Sucursal Centro** → New booking → weekday slot. Then logout and login as **admin** of the same tenant: pending rows are at the top → Aceptar or Rechazar. Tenant B has a different catalog and timezone (`America/Mexico_City`).
 
 ## Architecture
 
