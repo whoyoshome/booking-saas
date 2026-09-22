@@ -35,6 +35,15 @@ Request path for tenant data: JWT → `TenantGuard` → `TenantContextIntercepto
 
 NestJS · Prisma · PostgreSQL 16 (RLS, `booking_admin` / `booking_app`) · Redis · Next.js 14 · GitHub Actions (lint, unit, e2e, production images)
 
+## AI / agents
+
+If you're an AI coding agent (or a human using one) working in this repo, read [`AGENTS.md`](AGENTS.md) first — it has the hard rules (never bypass RLS, never invent an endpoint, keep diffs minimal, run e2e before calling a backend change done) and the architectural invariants this codebase depends on (the two-Postgres-role pattern, `@TenantScoped()`, the anti-double-booking exclusion constraint, timezone handling).
+
+For a recurring task, start from a template in [`docs/prompts/`](docs/prompts/) instead of writing the request from scratch:
+- [`add-endpoint.md`](docs/prompts/add-endpoint.md) — new API route.
+- [`fix-tenant-bug.md`](docs/prompts/fix-tenant-bug.md) — suspected cross-tenant data leak.
+- [`security-review.md`](docs/prompts/security-review.md) — checklist review of a diff or module.
+
 ## Run locally
 
 ```bash
