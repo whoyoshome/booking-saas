@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { useAuth } from '../../lib/auth-context';
 import { apiFetch } from '../../lib/api-client';
 import { Header } from '../../components/Header';
+import { AiAssistBox } from '../../components/AiAssistBox';
 import { usePagedList } from '../../components/use-paged-list';
 import type { Branch, Booking } from '../../lib/types';
 
@@ -159,6 +160,11 @@ export default function DashboardPage() {
   return (
     <main className="mx-auto max-w-2xl p-8">
       <Header />
+
+      {/* TENANT_ADMIN/STAFF only — mirrors @Roles(TENANT_ADMIN, STAFF) on
+          POST /ai/assist. This check is UI convenience, not the security
+          boundary; the API enforces the real restriction regardless. */}
+      {canOperate && <AiAssistBox />}
 
       {error && (
         <p className="mb-4 rounded bg-rust-bg px-3 py-2 text-sm text-rust-dark">

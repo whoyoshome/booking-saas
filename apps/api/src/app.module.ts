@@ -15,6 +15,7 @@ import { BranchSchedulesModule } from './branch-schedules/branch-schedules.modul
 import { BookingsModule } from './bookings/bookings.module';
 import { CorrelationIdMiddleware } from './common/middleware/correlation-id.middleware';
 import { RedisModule } from './redis/redis.module';
+import { AiModule } from './ai/ai.module';
 
 @Module({
   imports: [
@@ -38,6 +39,7 @@ import { RedisModule } from './redis/redis.module';
     AvailabilityModule,
     BranchSchedulesModule,
     BookingsModule,
+    AiModule,
   ],
   controllers: [HealthController],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],

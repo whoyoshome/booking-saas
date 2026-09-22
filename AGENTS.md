@@ -25,6 +25,10 @@ Instrucciones para cualquier agente de IA (Claude Code, Cursor, Copilot Workspac
 2. Revisar `docs/prompts/` por una plantilla que coincida con el tipo de tarea.
 3. Si la tarea no encaja claramente en ninguna regla dura de arriba pero hay duda de si cuenta como "inventar scope", parar y preguntar en vez de adivinar.
 
+## `POST /ai/assist` (Fase 2, ya implementado)
+
+Asistente de solo lectura, grounding estricto vía `this.prisma.client` sobre las reservas `PENDING` del tenant, sin ninguna capacidad de escritura. Contrato completo en `docs/ai-assist.md`. Si se extiende esta feature (más fuentes de datos, otro endpoint que llame a un LLM), seguir el mismo patrón: grounding read-only explícito, prompt que dice "si no está en los datos, decilo", y `503` claro si falta configuración — no asumir que "funciona distinto acá porque es IA".
+
 ## Fase 3 (futuro, no planificada todavía) — embeddings/RAG
 
 No es parte del roadmap actual. Si una tarea futura pide embeddings, un vector store, o RAG sobre los datos de reservas, tratarlo como scope nuevo que requiere aprobación explícita — no agregar `pgvector`, un pipeline de embeddings, ni una dependencia de vector DB de forma preventiva.

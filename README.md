@@ -44,6 +44,8 @@ For a recurring task, start from a template in [`docs/prompts/`](docs/prompts/) 
 - [`fix-tenant-bug.md`](docs/prompts/fix-tenant-bug.md) — suspected cross-tenant data leak.
 - [`security-review.md`](docs/prompts/security-review.md) — checklist review of a diff or module.
 
+**Separately:** the product itself has a small AI feature — `POST /ai/assist` (TENANT_ADMIN/STAFF only), a read-only assistant grounded strictly on the tenant's own PENDING bookings, with an explicit no-hallucination system prompt and a `503` (not a crash) when `OPENAI_API_KEY` isn't configured. Contract details in [`docs/ai-assist.md`](docs/ai-assist.md).
+
 ## Run locally
 
 ```bash
