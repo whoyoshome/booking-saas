@@ -30,6 +30,25 @@ const STATUS_STYLE: Record<Booking['status'], string> = {
   NO_SHOW: 'bg-rust-bg text-rust-dark',
 };
 
+// Left border on each row repeats the status color so a long list can be
+// scanned by color alone, without reading the badge text. PENDING also
+// gets a tinted row background: it's the only state that needs action.
+const STATUS_ROW: Record<Booking['status'], string> = {
+  PENDING: 'border-l-gold bg-gold-bg/40',
+  CONFIRMED: 'border-l-pine bg-surface',
+  CANCELLED: 'border-l-rust bg-surface',
+  COMPLETED: 'border-l-ink-400 bg-surface',
+  NO_SHOW: 'border-l-rust bg-surface',
+};
+
+const STATUS_ICON: Record<Booking['status'], string> = {
+  PENDING: '⏱',
+  CONFIRMED: '✓',
+  CANCELLED: '✕',
+  COMPLETED: '✓',
+  NO_SHOW: '!',
+};
+
 const searchInputClass =
   'w-full max-w-xs rounded-md border border-line bg-surface px-3 py-1.5 text-sm placeholder:text-ink-400 focus-visible:border-pine';
 
@@ -158,7 +177,7 @@ export default function DashboardPage() {
   }
 
   return (
-    <main className="mx-auto max-w-2xl p-8">
+    <main className="mx-auto max-w-5xl p-8">
       <Header />
 
       {/* TENANT_ADMIN/STAFF only — mirrors @Roles(TENANT_ADMIN, STAFF) on
@@ -274,11 +293,11 @@ export default function DashboardPage() {
 
         {bookings !== null && bookings.length > 0 && (
           <>
-            <ul className="divide-y divide-line rounded-lg border border-line">
+            <ul className="grid gap-2 lg:grid-cols-2">
               {bookingPage.shown.map((b) => (
                 <li
                   key={b.id}
-                  className="flex flex-col gap-2 p-3 text-sm sm:flex-row sm:items-center sm:justify-between"
+                  className={`flex flex-col gap-2 rounded-lg border border-l-4 border-line p-3 text-sm sm:flex-row sm:items-center sm:justify-between ${STATUS_ROW[b.status]}`}
                 >
                   <div>
                     <p className="font-medium text-ink">{b.service?.name ?? b.serviceId}</p>
@@ -293,8 +312,9 @@ export default function DashboardPage() {
 
                   <div className="flex shrink-0 flex-col items-start gap-1.5 sm:items-end">
                     <span
-                      className={`rounded px-2 py-0.5 text-xs font-medium ${STATUS_STYLE[b.status]}`}
+                      className={`inline-flex items-center gap-1 rounded px-2 py-0.5 text-xs font-semibold ${STATUS_STYLE[b.status]}`}
                     >
+                      <span aria-hidden="true">{STATUS_ICON[b.status]}</span>
                       {b.status}
                     </span>
 

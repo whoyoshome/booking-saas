@@ -14,7 +14,7 @@ function SkeletonRow() {
 
 export default function DashboardLoading() {
   return (
-    <main className="mx-auto max-w-2xl p-8">
+    <main className="mx-auto max-w-5xl p-8">
       <div className="mb-6 h-10 animate-pulse rounded bg-line" />
       <div className="mb-8 space-y-2">
         <div className="mb-3 h-4 w-24 animate-pulse rounded bg-line" />
