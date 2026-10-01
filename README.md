@@ -13,12 +13,31 @@ Password for all accounts: `ChangeMe123!`
 
 | Role | Email | Login → Tenant |
 |------|--------|----------------|
-| Cliente (pide turno) | `cliente@tenant.dev` | Tenant A o B |
-| Admin del local (acepta / rechaza) | `admin@tenant.dev` | Tenant A — Demo Clínica / Tenant B — Demo Salón |
+| Client (requests a booking) | `cliente@tenant.dev` | Tenant A or B |
+| Tenant admin (accepts / rejects) | `admin@tenant.dev` | Tenant A — Demo Clínica / Tenant B — Demo Salón |
 | Staff | `ana@tenant-a.dev` / `carlos@tenant-b.dev` | Tenant A / Tenant B |
 | Platform admin | `admin@bookingsaas.dev` | Super admin |
 
 Walkthrough: login as **cliente** → Tenant A → **Sucursal Centro** → New booking → weekday slot. Then logout and login as **admin** of the same tenant: pending rows are at the top → Aceptar or Rechazar. Tenant B has a different catalog and timezone (`America/Mexico_City`).
+
+## Alerts center
+
+`/alerts` (tenant admin and staff only) shows which bookings need a decision now: priority KPIs, status filters and a list sorted by urgency. Sign in as **admin** → **Alertas** → **Demo** for a self-contained dataset; **Datos reales** shows the tenant's own bookings.
+
+The API has no severity field, so priority is derived client-side by pure, tested functions in [`apps/web/lib/alerts.ts`](apps/web/lib/alerts.ts):
+
+| Priority | Rule |
+|----------|------|
+| Critical | `PENDING` expiring in < 3 min, or starting in < 60 min |
+| High | Any other `PENDING` |
+| Normal | `CONFIRMED` that has not ended |
+| Closed | `CANCELLED`, `COMPLETED`, `NO_SHOW`, or `CONFIRMED` that has ended |
+
+Design notes:
+
+- Priority is conveyed by shape and label as well as color.
+- Demo data is generated relative to the current time instead of seeded, because the API cancels `PENDING` bookings after 10 minutes.
+- That 10-minute TTL is mirrored in the web app; a unit test reads the API source and fails if the two values diverge.
 
 ## Architecture
 
@@ -33,7 +52,7 @@ Request path for tenant data: JWT → `TenantGuard` → `TenantContextIntercepto
 
 ## Stack
 
-NestJS · Prisma · PostgreSQL 16 (RLS, `booking_admin` / `booking_app`) · Redis · Next.js 14 · GitHub Actions (lint, unit, e2e, production images)
+NestJS · Prisma · PostgreSQL 16 (RLS, `booking_admin` / `booking_app`) · Redis · Next.js 14 · Tailwind CSS · Vitest + Testing Library · GitHub Actions (lint, typecheck, unit, e2e, production images)
 
 ## AI / agents
 
@@ -56,6 +75,15 @@ docker compose up --build
 Web: http://localhost:3000 · API: http://localhost:3001/health
 
 Use the same demo emails and password as above. After a volume wipe (`docker compose down -v`), run migrations as `booking_admin` then seed before logging in with an old JWT.
+
+## Tests
+
+```bash
+cd apps/api && npm test && npm run test:e2e   # unit + e2e (RLS, exclusion constraint, cache)
+cd apps/web && npm test                       # Vitest + Testing Library
+```
+
+Each app has its own lockfile, so CI installs with `npm ci --no-workspaces`.
 
 ## Repository
 
