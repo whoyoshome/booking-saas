@@ -7,7 +7,7 @@ test('wrong password shows the API error and keeps the user on /login', async ({
   await page.goto('/login');
   await page.getByLabel('Email').fill('cliente@tenant.dev');
   await page.getByLabel('Password').fill('not-the-password');
-  await page.getByRole('button', { name: 'Ingresar' }).click();
+  await page.getByRole('button', { name: 'Sign in' }).click();
 
   await expect(page.getByText('Credenciales inválidas.')).toBeVisible();
   await expect(page).toHaveURL(/\/login$/);
@@ -19,9 +19,9 @@ test('a protected page redirects to login and returns there after signing in', a
 
   await page.getByLabel('Email').fill('cliente@tenant.dev');
   await page.getByLabel('Password').fill(PASSWORD);
-  await page.getByRole('button', { name: 'Ingresar' }).click();
+  await page.getByRole('button', { name: 'Sign in' }).click();
 
   await expect(page).toHaveURL(/\/book$/);
-  await expect(page.getByRole('heading', { name: 'Nueva reserva' })).toBeVisible();
-  await expect(page.getByText('Cliente', { exact: true })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'New booking' })).toBeVisible();
+  await expect(page.getByText('Client', { exact: true })).toBeVisible();
 });

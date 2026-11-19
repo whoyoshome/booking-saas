@@ -31,7 +31,7 @@ const bodyFont = localFont({
 
 export const metadata: Metadata = {
   title: 'Booking SaaS',
-  description: 'Plataforma de reservas multi-tenant para negocios de servicios.',
+  description: 'Multi-tenant appointment booking for service businesses.',
 };
 
 export default function RootLayout({
@@ -40,7 +40,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="es" className={`${displayFont.variable} ${bodyFont.variable}`}>
+    <html lang="en"className={`${displayFont.variable} ${bodyFont.variable}`}>
       <body>
         <AuthProvider>{children}</AuthProvider>
       </body>

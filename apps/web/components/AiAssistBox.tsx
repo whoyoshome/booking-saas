@@ -39,13 +39,13 @@ export function AiAssistBox() {
         // The documented, expected state when OPENAI_API_KEY isn't
         // configured (e.g. this demo's own hosted environment, unless a
         // key was explicitly added) — not a bug, shown as a plain notice.
-        setError('El asistente de IA no está configurado en este entorno (falta OPENAI_API_KEY).');
+        setError('The AI assistant is not configured in this environment (OPENAI_API_KEY is missing).');
         return;
       }
 
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
-        setError(body.message ?? `No se pudo consultar al asistente (${res.status}).`);
+        setError(body.message ?? `Could not reach the assistant (${res.status}).`);
         return;
       }
 
@@ -53,7 +53,7 @@ export function AiAssistBox() {
       setAnswer(body.answer);
       setGroundedCount(body.groundedOnPendingBookings);
     } catch {
-      setError('No se pudo conectar con el asistente.');
+      setError('Could not connect to the assistant.');
     } finally {
       setSubmitting(false);
     }
@@ -65,14 +65,14 @@ export function AiAssistBox() {
         {/* The placeholder is an example question, not a label — it
             disappears as soon as someone types. */}
         <label htmlFor="ai-assist-question" className="sr-only">
-          Pregunta para el asistente
+          Question for the assistant
         </label>
         <input
           id="ai-assist-question"
           type="text"
           value={question}
           onChange={(e) => setQuestion(e.target.value)}
-          placeholder="¿Cuántas reservas pendientes hay para mañana?"
+          placeholder="How many pending bookings are there for tomorrow?"
           className="flex-1 rounded-md border px-3 py-1.5 text-sm"
           minLength={3}
           maxLength={500}
@@ -83,7 +83,7 @@ export function AiAssistBox() {
           disabled={submitting}
           className="rounded-md bg-black px-3 py-1.5 text-sm text-white disabled:opacity-50"
         >
-          {submitting ? 'Preguntando...' : 'Preguntar'}
+          {submitting ? 'Asking…' : 'Ask'}
         </button>
       </form>
 
@@ -98,8 +98,7 @@ export function AiAssistBox() {
           <p className="whitespace-pre-wrap">{answer}</p>
           {groundedCount !== null && (
             <p className="mt-2 text-xs text-ink-400">
-              Basado en {groundedCount} reserva{groundedCount === 1 ? '' : 's'} pendiente
-              {groundedCount === 1 ? '' : 's'}.
+              Based on {groundedCount} pending booking{groundedCount === 1 ? '' : 's'}.
             </p>
           )}
         </div>

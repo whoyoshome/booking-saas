@@ -109,7 +109,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (!ok) {
       clearTokens();
       setIsAuthenticated(false);
-      throw new Error('No se pudo cargar el perfil. Intentá de nuevo.');
+      throw new Error('Could not load your profile. Please try again.');
     }
     setIsAuthenticated(true);
   }

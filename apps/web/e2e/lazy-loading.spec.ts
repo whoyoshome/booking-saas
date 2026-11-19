@@ -4,9 +4,10 @@ import { AUTH_FILE } from './support/session';
 /**
  * The dashboard lazy-loads AiAssistBox (React.lazy + Suspense) because
  * only TENANT_ADMIN/STAFF render it. Chunk file names are content hashes,
- * so the assistant's code is identified by a string only it contains.
+ * so the assistant's code is identified by a string only it contains (its
+ * input label; the frame around it lives in the page bundle).
  */
-const ASSISTANT_CODE_MARKER = 'Preguntando...';
+const ASSISTANT_CODE_MARKER = 'Question for the assistant';
 
 /** Every JS file the page downloaded, with its body. */
 async function loadDashboardScripts(page: Page) {
@@ -15,7 +16,7 @@ async function loadDashboardScripts(page: Page) {
     if (r.request().resourceType() === 'script') responses.push(r);
   });
   await page.goto('/dashboard');
-  await expect(page.getByText(/^Reservas( \(\d+\))?$/)).toBeVisible();
+  await expect(page.getByText(/^Bookings( \(\d+\))?$/)).toBeVisible();
   await page.waitForLoadState('networkidle');
   return Promise.all(responses.map(async (r) => ({ url: r.url(), body: await r.text() })));
 }
@@ -28,7 +29,7 @@ test.describe('as CLIENT', () => {
 
     expect(scripts.length).toBeGreaterThan(0);
     expect(scripts.filter((s) => s.body.includes(ASSISTANT_CODE_MARKER)).map((s) => s.url)).toEqual([]);
-    await expect(page.getByText('Asistente (beta)')).toHaveCount(0);
+    await expect(page.getByText('Assistant (beta)')).toHaveCount(0);
   });
 });
 
@@ -41,7 +42,7 @@ test.describe('as TENANT_ADMIN', () => {
 
     expect(withAssistant).toHaveLength(1);
     expect(withAssistant[0].url).not.toContain('/app/dashboard/');
-    await expect(page.getByLabel('Pregunta para el asistente')).toBeVisible();
+    await expect(page.getByLabel('Question for the assistant')).toBeVisible();
   });
 
   test('the placeholder holds the same space, so nothing shifts when the chunk arrives', async ({ page }) => {
@@ -56,13 +57,13 @@ test.describe('as TENANT_ADMIN', () => {
     });
 
     await page.goto('/dashboard');
-    const frame = page.locator('section', { has: page.getByRole('heading', { name: 'Asistente (beta)' }) });
+    const frame = page.locator('section', { has: page.getByRole('heading', { name: 'Assistant (beta)' }) });
     await expect(frame).toBeVisible();
-    await expect(page.getByLabel('Pregunta para el asistente')).toHaveCount(0); // still the placeholder
+    await expect(page.getByLabel('Question for the assistant')).toHaveCount(0); // still the placeholder
     const placeholderHeight = (await frame.boundingBox())!.height;
 
     release();
-    await expect(page.getByLabel('Pregunta para el asistente')).toBeVisible();
+    await expect(page.getByLabel('Question for the assistant')).toBeVisible();
     expect((await frame.boundingBox())!.height).toBe(placeholderHeight);
   });
 });

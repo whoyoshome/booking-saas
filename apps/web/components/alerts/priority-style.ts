@@ -9,10 +9,10 @@ import type { Priority } from '../../lib/alerts';
 // expect the last one to win (Tailwind emits them in its own order).
 
 export const PRIORITY_LABEL: Record<Priority, string> = {
-  CRITICAL: 'Crítica',
-  HIGH: 'Alta',
+  CRITICAL: 'Critical',
+  HIGH: 'High',
   NORMAL: 'Normal',
-  CLOSED: 'Cerrada',
+  CLOSED: 'Closed',
 };
 
 export const PRIORITY_ICON: Record<Priority, string> = {

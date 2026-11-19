@@ -17,29 +17,29 @@ describe('AlertRow — PENDING', () => {
   it('a critical hold shows its priority, status and both countdowns', () => {
     const row = renderRow(pending(2, 40));
 
-    expect(row).toHaveTextContent('Crítica');
+    expect(row).toHaveTextContent('Critical');
     expect(row).toHaveTextContent('PENDING');
-    expect(row).toHaveTextContent('Vence en 2 min');
-    expect(row).toHaveTextContent('Empieza en 40 min');
+    expect(row).toHaveTextContent('Expires in 2 min');
+    expect(row).toHaveTextContent('Starts in 40 min');
   });
 
   it('a non-urgent hold is High and shows how long until it starts', () => {
     const row = renderRow(pending(7, 24 * 60));
 
-    expect(row).toHaveTextContent('Alta');
-    expect(row).toHaveTextContent('Vence en 7 min');
-    expect(row).toHaveTextContent('Empieza en 1 d');
+    expect(row).toHaveTextContent('High');
+    expect(row).toHaveTextContent('Expires in 7 min');
+    expect(row).toHaveTextContent('Starts in 1 d');
   });
 
   it('an expired hold says the next sweep will cancel it', () => {
     const row = renderRow(pending(-2, 500));
 
-    expect(row).toHaveTextContent('Crítica');
-    expect(row).toHaveTextContent('Plazo vencido: se cancela en el próximo barrido');
+    expect(row).toHaveTextContent('Critical');
+    expect(row).toHaveTextContent('Hold expired: cancelled on the next sweep');
   });
 
   it('a hold that already started says so', () => {
-    expect(renderRow(pending(9, -30))).toHaveTextContent('Ya empezó');
+    expect(renderRow(pending(9, -30))).toHaveTextContent('Already started');
   });
 });
 
@@ -48,41 +48,41 @@ describe('AlertRow — CONFIRMED', () => {
     const row = renderRow(makeBooking({ startTime: minutesFrom(90), endTime: minutesFrom(120) }));
 
     expect(row).toHaveTextContent('Normal');
-    expect(row).toHaveTextContent('Empieza en 1 h 30 min');
-    expect(row).not.toHaveTextContent('finalizada');
-    expect(row).not.toHaveTextContent('Vence');
+    expect(row).toHaveTextContent('Starts in 1 h 30 min');
+    expect(row).not.toHaveTextContent('ended');
+    expect(row).not.toHaveTextContent('Expires');
   });
 
-  it('one that is over reads as closed: "CONFIRMED · finalizada", no countdowns', () => {
+  it('one that is over reads as closed: "CONFIRMED · ended", no countdowns', () => {
     const row = renderRow(
       makeBooking({ startTime: minutesFrom(-3 * 24 * 60), endTime: minutesFrom(-3 * 24 * 60 + 30) }),
     );
 
-    expect(row).toHaveTextContent('CONFIRMED · finalizada');
-    expect(row).toHaveTextContent('Cerrada');
+    expect(row).toHaveTextContent('CONFIRMED · ended');
+    expect(row).toHaveTextContent('Closed');
     expect(row).not.toHaveTextContent('Normal');
-    expect(row).not.toHaveTextContent('Empieza');
-    expect(row).not.toHaveTextContent('Vence');
+    expect(row).not.toHaveTextContent('Starts');
+    expect(row).not.toHaveTextContent('Expires');
     // Deliberate style assertion: a finished CONFIRMED must not look active.
     expect(row).toHaveClass('border-l-ink-400');
   });
 
-  it('one in progress is still Normal, not finalizada', () => {
+  it('one in progress is still Normal, not ended', () => {
     const row = renderRow(makeBooking({ startTime: minutesFrom(-10), endTime: minutesFrom(20) }));
 
     expect(row).toHaveTextContent('Normal');
-    expect(row).not.toHaveTextContent('finalizada');
+    expect(row).not.toHaveTextContent('ended');
   });
 });
 
 describe('AlertRow — closed statuses', () => {
-  it.each(['CANCELLED', 'COMPLETED', 'NO_SHOW'] as const)('%s is Cerrada with no countdowns', (status) => {
+  it.each(['CANCELLED', 'COMPLETED', 'NO_SHOW'] as const)('%s is Closed with no countdowns', (status) => {
     const row = renderRow(makeBooking({ status }));
 
     expect(row).toHaveTextContent(status);
-    expect(row).toHaveTextContent('Cerrada');
-    expect(row).not.toHaveTextContent('finalizada');
-    expect(row).not.toHaveTextContent('Empieza');
+    expect(row).toHaveTextContent('Closed');
+    expect(row).not.toHaveTextContent('ended');
+    expect(row).not.toHaveTextContent('Starts');
   });
 });
 
@@ -90,10 +90,10 @@ describe('AlertRow — content and links', () => {
   it('shows service, branch, staff and client', () => {
     const row = renderRow(makeBooking());
 
-    expect(row).toHaveTextContent('Corte de cabello');
-    expect(row).toHaveTextContent('Sucursal Centro');
+    expect(row).toHaveTextContent('Haircut');
+    expect(row).toHaveTextContent('Downtown Branch');
     expect(row).toHaveTextContent('ana@tenant-a.dev');
-    expect(row).toHaveTextContent('Cliente: cliente@example.com');
+    expect(row).toHaveTextContent('Client: cliente@example.com');
   });
 
   it('falls back to the ids when the relations are missing (e.g. a POST response)', () => {
@@ -111,13 +111,13 @@ describe('AlertRow — content and links', () => {
 
     expect(row).toHaveTextContent('svc-9');
     expect(row).toHaveTextContent('br-9 · st-9');
-    expect(row).not.toHaveTextContent('Cliente:');
+    expect(row).not.toHaveTextContent('Client:');
   });
 
   it('links a PENDING row to the dashboard when asked to', () => {
     renderRow(pending(5, 500), true);
 
-    expect(screen.getByRole('link', { name: 'Resolver en el dashboard' })).toHaveAttribute('href', '/dashboard');
+    expect(screen.getByRole('link', { name: 'Resolve on the dashboard' })).toHaveAttribute('href', '/dashboard');
   });
 
   it('does not link a PENDING row when not asked to (demo mode)', () => {

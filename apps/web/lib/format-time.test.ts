@@ -15,9 +15,9 @@ describe('minutesFromNow', () => {
 
 describe('formatDuration', () => {
   it.each([
-    [0, 'menos de 1 min'],
-    [0.4, 'menos de 1 min'],
-    [-5, 'menos de 1 min'],
+    [0, 'less than 1 min'],
+    [0.4, 'less than 1 min'],
+    [-5, 'less than 1 min'],
     [1, '1 min'],
     [45, '45 min'],
     [59.4, '59 min'],
@@ -38,12 +38,12 @@ describe('formatDuration', () => {
 
 describe('describeExpiry', () => {
   it('counts down while the hold is alive', () => {
-    expect(describeExpiry(2)).toBe('Vence en 2 min');
-    expect(describeExpiry(0.4)).toBe('Vence en menos de 1 min');
+    expect(describeExpiry(2)).toBe('Expires in 2 min');
+    expect(describeExpiry(0.4)).toBe('Expires in less than 1 min');
   });
 
   it('says the next sweep cancels it once the time is up', () => {
-    const expected = 'Plazo vencido: se cancela en el próximo barrido';
+    const expected = 'Hold expired: cancelled on the next sweep';
     expect(describeExpiry(0)).toBe(expected);
     expect(describeExpiry(-3)).toBe(expected);
   });
@@ -55,13 +55,13 @@ describe('describeExpiry', () => {
 
 describe('describeStart', () => {
   it('counts down to the start', () => {
-    expect(describeStart(40)).toBe('Empieza en 40 min');
-    expect(describeStart(24 * 60)).toBe('Empieza en 1 d');
+    expect(describeStart(40)).toBe('Starts in 40 min');
+    expect(describeStart(24 * 60)).toBe('Starts in 1 d');
   });
 
   it('says it already started at or after the start', () => {
-    expect(describeStart(0)).toBe('Ya empezó');
-    expect(describeStart(-10)).toBe('Ya empezó');
+    expect(describeStart(0)).toBe('Already started');
+    expect(describeStart(-10)).toBe('Already started');
   });
 
   it('is empty for an unparseable value', () => {

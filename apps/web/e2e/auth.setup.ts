@@ -24,10 +24,10 @@ for (const { role, email } of ACCOUNTS) {
     }
 
     await page.goto('/login');
-    await page.getByLabel('Tenant').selectOption('tenant-a');
+    await page.getByLabel('Business').selectOption('tenant-a');
     await page.getByLabel('Email').fill(email);
     await page.getByLabel('Password').fill(PASSWORD);
-    await page.getByRole('button', { name: 'Ingresar' }).click();
+    await page.getByRole('button', { name: 'Sign in' }).click();
     await expect(page).toHaveURL(/\/dashboard$/);
     await page.context().storageState({ path: AUTH_FILE[role] });
   });

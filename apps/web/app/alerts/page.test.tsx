@@ -57,7 +57,7 @@ function liveBookings(): Booking[] {
 }
 
 function listRows() {
-  return within(screen.getByRole('list', { name: 'Reservas por urgencia' })).getAllByRole('listitem');
+  return within(screen.getByRole('list', { name: 'Bookings by urgency' })).getAllByRole('listitem');
 }
 
 beforeEach(() => {
@@ -77,27 +77,27 @@ describe('/alerts — demo mode', () => {
   it('shows a visible notice that the data is fictional, and never calls the API', () => {
     render(<AlertsPage />);
 
-    expect(screen.getByRole('status')).toHaveTextContent('Datos de demostración');
+    expect(screen.getByRole('status')).toHaveTextContent('Demo data');
     expect(mocks.apiFetch).not.toHaveBeenCalled();
   });
 
   it('summarizes the fixtures: 6 need action, KPIs 3 / 3 / 3 / 6', () => {
     render(<AlertsPage />);
 
-    expect(screen.getByText('6 reservas requieren acción.')).toBeInTheDocument();
-    const summary = screen.getByRole('list', { name: 'Resumen' });
+    expect(screen.getByText('6 bookings need action.')).toBeInTheDocument();
+    const summary = screen.getByRole('list', { name: 'Summary' });
     const tile = (label: string) => within(summary).getByText(label).closest('li');
-    expect(tile('Críticas')).toHaveTextContent(/Críticas\s*3$/);
-    expect(tile('Altas')).toHaveTextContent(/Altas\s*3$/);
-    expect(tile('Confirmadas vigentes')).toHaveTextContent(/Confirmadas vigentes\s*3$/);
-    expect(tile('Cerradas')).toHaveTextContent(/Cerradas\s*6$/);
+    expect(tile('Critical')).toHaveTextContent(/Critical\s*3$/);
+    expect(tile('High')).toHaveTextContent(/High\s*3$/);
+    expect(tile('Upcoming confirmed')).toHaveTextContent(/Upcoming confirmed\s*3$/);
+    expect(tile('Closed')).toHaveTextContent(/Closed\s*6$/);
   });
 
   it('counts the status chips by stored status', () => {
     render(<AlertsPage />);
 
     for (const name of [
-      'Todas (15)',
+      'All (15)',
       'PENDING (6)',
       'CONFIRMED (4)',
       'CANCELLED (2)',
@@ -112,20 +112,20 @@ describe('/alerts — demo mode', () => {
     render(<AlertsPage />);
 
     const [first, second, third] = listRows();
-    expect(first).toHaveTextContent('Vence en 1 min');
-    expect(second).toHaveTextContent('Vence en 2 min');
-    expect(third).toHaveTextContent('Empieza en 40 min');
+    expect(first).toHaveTextContent('Expires in 1 min');
+    expect(second).toHaveTextContent('Expires in 2 min');
+    expect(third).toHaveTextContent('Starts in 40 min');
   });
 
-  it('pages the list: 8 rows, then the rest on "Ver más"', async () => {
+  it('pages the list: 8 rows, then the rest on "Show more"', async () => {
     const user = userEvent.setup();
     render(<AlertsPage />);
 
     expect(listRows()).toHaveLength(8);
-    await user.click(screen.getByRole('button', { name: 'Ver más (7 restantes)' }));
+    await user.click(screen.getByRole('button', { name: 'Show more (7 left)' }));
 
     expect(listRows()).toHaveLength(15);
-    expect(screen.queryByRole('button', { name: /Ver más/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Show more/ })).not.toBeInTheDocument();
   });
 
   it('filters by status', async () => {
@@ -146,35 +146,35 @@ describe('/alerts — demo mode', () => {
     await user.click(screen.getByRole('button', { name: 'CONFIRMED (4)' }));
 
     expect(listRows()).toHaveLength(4);
-    const finished = screen.getAllByText('CONFIRMED · finalizada');
+    const finished = screen.getAllByText('CONFIRMED · ended');
     expect(finished).toHaveLength(1);
-    expect(finished[0].closest('li')).toHaveTextContent('Cerrada');
+    expect(finished[0].closest('li')).toHaveTextContent('Closed');
   });
 
   it('does not link rows to the dashboard (the data is not real)', () => {
     render(<AlertsPage />);
 
-    expect(screen.queryByRole('link', { name: 'Resolver en el dashboard' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Resolve on the dashboard' })).not.toBeInTheDocument();
   });
 
   it('offers a search box once there are more than 8 rows', () => {
     render(<AlertsPage />);
 
-    expect(screen.getByRole('searchbox', { name: 'Buscar reserva' })).toBeInTheDocument();
+    expect(screen.getByRole('searchbox', { name: 'Search bookings' })).toBeInTheDocument();
   });
 
   it('says so when a search matches nothing', async () => {
     const user = userEvent.setup();
     render(<AlertsPage />);
 
-    await user.type(screen.getByRole('searchbox', { name: 'Buscar reserva' }), 'zzz-no-match');
+    await user.type(screen.getByRole('searchbox', { name: 'Search bookings' }), 'zzz-no-match');
 
-    expect(screen.getByText(/Ninguna reserva coincide con/)).toBeInTheDocument();
+    expect(screen.getByText(/No bookings match/)).toBeInTheDocument();
   });
 });
 
 describe('/alerts — switching the data source resets the filter', () => {
-  it('goes back to "Todas" when moving from Demo to Datos reales', async () => {
+  it('goes back to "All" when moving from Demo to Live data', async () => {
     const user = userEvent.setup();
     mocks.state.search = 'demo=1';
     mocks.apiFetch.mockResolvedValue(jsonResponse(liveBookings()));
@@ -186,12 +186,12 @@ describe('/alerts — switching the data source resets the filter', () => {
     mocks.state.search = '';
     rerender(<AlertsPage />);
 
-    const todas = await screen.findByRole('button', { name: /^Todas/ });
-    expect(todas).toHaveAttribute('aria-pressed', 'true');
+    const all = await screen.findByRole('button', { name: /^All/ });
+    expect(all).toHaveAttribute('aria-pressed', 'true');
     expect(screen.getByRole('button', { name: /^PENDING/ })).toHaveAttribute('aria-pressed', 'false');
   });
 
-  it('goes back to "Todas" when moving from Datos reales to Demo', async () => {
+  it('goes back to "All" when moving from Live data to Demo', async () => {
     const user = userEvent.setup();
     mocks.apiFetch.mockResolvedValue(jsonResponse(liveBookings()));
     const { rerender } = render(<AlertsPage />);
@@ -202,7 +202,7 @@ describe('/alerts — switching the data source resets the filter', () => {
     mocks.state.search = 'demo=1';
     rerender(<AlertsPage />);
 
-    expect(screen.getByRole('button', { name: /^Todas/ })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByRole('button', { name: /^All/ })).toHaveAttribute('aria-pressed', 'true');
     expect(listRows()).toHaveLength(8);
   });
 });
@@ -212,8 +212,8 @@ describe('/alerts — real data', () => {
     mocks.apiFetch.mockResolvedValue(jsonResponse(liveBookings()));
     render(<AlertsPage />);
 
-    expect(screen.getByText('Cargando reservas…')).toBeInTheDocument();
-    await screen.findByRole('list', { name: 'Reservas por urgencia' });
+    expect(screen.getByText('Loading bookings…')).toBeInTheDocument();
+    await screen.findByRole('list', { name: 'Bookings by urgency' });
 
     expect(mocks.apiFetch).toHaveBeenCalledWith('/bookings');
     expect(screen.queryByRole('status')).not.toBeInTheDocument();
@@ -223,9 +223,9 @@ describe('/alerts — real data', () => {
   it('links PENDING rows to the dashboard, where they can be resolved', async () => {
     mocks.apiFetch.mockResolvedValue(jsonResponse(liveBookings()));
     render(<AlertsPage />);
-    await screen.findByRole('list', { name: 'Reservas por urgencia' });
+    await screen.findByRole('list', { name: 'Bookings by urgency' });
 
-    const links = screen.getAllByRole('link', { name: 'Resolver en el dashboard' });
+    const links = screen.getAllByRole('link', { name: 'Resolve on the dashboard' });
     expect(links).toHaveLength(2);
     expect(links[0]).toHaveAttribute('href', '/dashboard');
   });
@@ -233,9 +233,9 @@ describe('/alerts — real data', () => {
   it('puts the critical hold first', async () => {
     mocks.apiFetch.mockResolvedValue(jsonResponse(liveBookings()));
     render(<AlertsPage />);
-    await screen.findByRole('list', { name: 'Reservas por urgencia' });
+    await screen.findByRole('list', { name: 'Bookings by urgency' });
 
-    expect(listRows()[0]).toHaveTextContent('Crítica');
+    expect(listRows()[0]).toHaveTextContent('Critical');
     expect(listRows()[2]).toHaveTextContent('Normal');
   });
 
@@ -248,9 +248,9 @@ describe('/alerts — real data', () => {
 
     expect(await screen.findByRole('alert')).toHaveTextContent('GET /bookings -> 500');
 
-    await user.click(screen.getByRole('button', { name: 'Reintentar' }));
+    await user.click(screen.getByRole('button', { name: 'Retry' }));
 
-    await screen.findByRole('list', { name: 'Reservas por urgencia' });
+    await screen.findByRole('list', { name: 'Bookings by urgency' });
     expect(screen.queryByRole('alert')).not.toBeInTheDocument();
   });
 
@@ -258,8 +258,8 @@ describe('/alerts — real data', () => {
     mocks.apiFetch.mockResolvedValue(jsonResponse([]));
     render(<AlertsPage />);
 
-    expect(await screen.findByText('Sin reservas todavía para este tenant.')).toBeInTheDocument();
-    expect(screen.getByText('Nada pendiente de acción.')).toBeInTheDocument();
+    expect(await screen.findByText('No bookings yet for this business.')).toBeInTheDocument();
+    expect(screen.getByText('Nothing needs action.')).toBeInTheDocument();
   });
 
   it('says so when a status has no bookings', async () => {
@@ -269,16 +269,16 @@ describe('/alerts — real data', () => {
 
     await user.click(await screen.findByRole('button', { name: 'PENDING (0)' }));
 
-    expect(screen.getByText('No hay reservas con estado PENDING.')).toBeInTheDocument();
+    expect(screen.getByText('No PENDING bookings.')).toBeInTheDocument();
   });
 
-  it('refetches on "Actualizar"', async () => {
+  it('refetches on "Refresh"', async () => {
     const user = userEvent.setup();
     mocks.apiFetch.mockResolvedValue(jsonResponse(liveBookings()));
     render(<AlertsPage />);
-    await screen.findByRole('list', { name: 'Reservas por urgencia' });
+    await screen.findByRole('list', { name: 'Bookings by urgency' });
 
-    await user.click(screen.getByRole('button', { name: 'Actualizar' }));
+    await user.click(screen.getByRole('button', { name: 'Refresh' }));
 
     await waitFor(() => expect(mocks.apiFetch).toHaveBeenCalledTimes(2));
   });
@@ -290,7 +290,7 @@ describe('/alerts — who can see it', () => {
     mocks.state.search = 'demo=1';
     render(<AlertsPage />);
 
-    expect(screen.getByRole('heading', { name: 'Centro de alertas' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Alerts center' })).toBeInTheDocument();
     expect(mocks.replace).not.toHaveBeenCalled();
   });
 
@@ -300,7 +300,7 @@ describe('/alerts — who can see it', () => {
 
     expect(mocks.replace).toHaveBeenCalledWith('/dashboard');
     expect(mocks.apiFetch).not.toHaveBeenCalled();
-    expect(screen.queryByRole('heading', { name: 'Centro de alertas' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Alerts center' })).not.toBeInTheDocument();
   });
 
   it('a visitor without a session is sent to the login, without fetching', () => {
@@ -317,12 +317,12 @@ describe('/alerts — who can see it', () => {
 
     expect(mocks.replace).not.toHaveBeenCalled();
     expect(mocks.apiFetch).not.toHaveBeenCalled();
-    expect(screen.getByText('Cargando…')).toBeInTheDocument();
+    expect(screen.getByText('Loading…')).toBeInTheDocument();
   });
 
-  it('the header marks Alertas as the current page', () => {
+  it('the header marks Alerts as the current page', () => {
     mocks.state.search = 'demo=1';
     render(<AlertsPage />);
-    expect(screen.getByRole('link', { name: 'Alertas' })).toHaveAttribute('aria-current', 'page');
+    expect(screen.getByRole('link', { name: 'Alerts' })).toHaveAttribute('aria-current', 'page');
   });
 });

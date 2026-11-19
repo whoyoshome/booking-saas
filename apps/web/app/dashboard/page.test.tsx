@@ -20,13 +20,13 @@ const BOOKINGS: Booking[] = [
   makeBooking({
     id: 'confirmed-1',
     status: 'CONFIRMED',
-    service: { name: 'Coloración' },
+    service: { name: 'Hair color' },
     startTime: '2026-09-20T15:00:00.000Z',
   }),
   makeBooking({
     id: 'pending-1',
     status: 'PENDING',
-    service: { name: 'Corte de cabello' },
+    service: { name: 'Haircut' },
     startTime: '2026-09-14T15:00:00.000Z',
   }),
 ];
@@ -48,7 +48,7 @@ function renderDashboard(role: Role, extraRoutes = {}) {
 }
 
 async function bookingRows() {
-  await screen.findByText('Corte de cabello');
+  await screen.findByText('Haircut');
   return screen.getAllByRole('listitem');
 }
 
@@ -62,13 +62,13 @@ afterEach(() => {
 
 describe('/dashboard — bookings list', () => {
   it.each([
-    ['TENANT_ADMIN', ['Aceptar', 'Rechazar']],
-    ['CLIENT', ['Cancelar solicitud']],
+    ['TENANT_ADMIN', ['Accept', 'Reject']],
+    ['CLIENT', ['Cancel request']],
   ] as const)('lists PENDING first and shows %s only the actions its role allows', async (role, expectedActions) => {
     renderDashboard(role);
 
     const [first, second] = await bookingRows();
-    expect(within(first).getByText('Corte de cabello')).toBeInTheDocument();
+    expect(within(first).getByText('Haircut')).toBeInTheDocument();
     expect(within(first).getByText('PENDING')).toBeInTheDocument();
     expect(within(second).getByText('CONFIRMED')).toBeInTheDocument();
 
@@ -86,7 +86,7 @@ describe('/dashboard — bookings list', () => {
     });
 
     const [pendingRow] = await bookingRows();
-    await userEvent.click(within(pendingRow).getByRole('button', { name: 'Aceptar' }));
+    await userEvent.click(within(pendingRow).getByRole('button', { name: 'Accept' }));
 
     expect(await within(pendingRow).findByText('CONFIRMED')).toBeInTheDocument();
     expect(within(pendingRow).queryByRole('button')).not.toBeInTheDocument();

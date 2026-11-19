@@ -27,7 +27,7 @@ export function AlertRow({ booking, now, showManageLink = false }: AlertRowProps
   // ever moves it to COMPLETED), the priority says CLOSED. Say both, so it
   // doesn't look like a contradiction when it shows up under the CONFIRMED chip.
   const finished = booking.status === 'CONFIRMED' && priority === 'CLOSED';
-  const statusText = finished ? `${booking.status} · finalizada` : booking.status;
+  const statusText = finished ? `${booking.status} · ended` : booking.status;
 
   const startHint =
     priority === 'CLOSED' ? '' : describeStart(minutesFromNow(booking.startTime, now));
@@ -43,7 +43,7 @@ export function AlertRow({ booking, now, showManageLink = false }: AlertRowProps
         <p className="text-ink-600">
           {booking.branch?.name ?? booking.branchId} · {booking.staff?.user.email ?? booking.staffId}
         </p>
-        {booking.client?.email && <p className="text-ink-600">Cliente: {booking.client.email}</p>}
+        {booking.client?.email && <p className="text-ink-600">Client: {booking.client.email}</p>}
         <p className="text-ink-600">
           {new Date(booking.startTime).toLocaleString('es', START_FORMAT)}
         </p>
@@ -59,7 +59,7 @@ export function AlertRow({ booking, now, showManageLink = false }: AlertRowProps
             href="/dashboard"
             className="text-xs font-medium text-pine underline underline-offset-2"
           >
-            Resolver en el dashboard
+            Resolve on the dashboard
           </Link>
         )}
       </div>

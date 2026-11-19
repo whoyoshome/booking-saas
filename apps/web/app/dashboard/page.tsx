@@ -111,7 +111,7 @@ export default function DashboardPage() {
       setBookings((await res.json()) as Booking[]);
       setBookingsError(null);
     } catch (err) {
-      setBookingsError(err instanceof Error ? err.message : 'No se pudo refrescar la lista.');
+      setBookingsError(err instanceof Error ? err.message : 'Could not refresh the list.');
     }
   }, []);
 
@@ -167,13 +167,13 @@ export default function DashboardPage() {
         id,
         message:
           apiMessage ??
-          `No se pudo ${action === 'confirm' ? 'confirmar' : 'cancelar'} (${res.status}).`,
+          `Could not ${action === 'confirm' ? 'confirm' : 'cancel'} this booking (${res.status}).`,
       });
       await refreshBookings();
     } catch (err) {
       setRowError({
         id,
-        message: err instanceof Error ? err.message : 'Error de red — intentá de nuevo.',
+        message: err instanceof Error ? err.message : 'Network error — please try again.',
       });
     } finally {
       setActioningId(null);
@@ -181,7 +181,7 @@ export default function DashboardPage() {
   }
 
   if (isLoading || !isAuthenticated) {
-    return <main className="p-8 text-sm text-ink-600">Cargando…</main>;
+    return <main className="p-8 text-sm text-ink-600">Loading…</main>;
   }
 
   return (
@@ -199,26 +199,26 @@ export default function DashboardPage() {
 
       {error && (
         <p role="alert" className="mb-4 rounded bg-rust-bg px-3 py-2 text-sm text-rust-dark">
-          Error consultando la API: {error}
+          Could not load branches: {error}
         </p>
       )}
 
-      {branches === null && !error && <p className="text-sm text-ink-600">Cargando sucursales…</p>}
+      {branches === null && !error && <p className="text-sm text-ink-600">Loading branches…</p>}
 
       {branches !== null && (
         <section className="mb-10">
           <div className="mb-3 flex flex-wrap items-end justify-between gap-3">
             <h2 className="text-sm font-medium text-ink-600">
-              Sucursales ({branchPage.total}
-              {branchPage.query ? ` de ${branches.length}` : ''})
+              Branches ({branchPage.total}
+              {branchPage.query ? ` of ${branches.length}` : ''})
             </h2>
             {branches.length > 8 && (
               <input
                 type="search"
                 value={branchPage.query}
                 onChange={(e) => branchPage.onQueryChange(e.target.value)}
-                aria-label="Buscar sucursal"
-                placeholder="Buscar sucursal…"
+                aria-label="Search branches"
+                placeholder="Search branches…"
                 className={searchInputClass}
               />
             )}
@@ -234,7 +234,7 @@ export default function DashboardPage() {
                     <p className="font-medium text-ink">{b.name}</p>
                     <p className="text-sm text-ink-600">{b.timezone}</p>
                   </span>
-                  <span className="text-sm font-medium text-pine">Reservar</span>
+                  <span className="text-sm font-medium text-pine">Book</span>
                 </Link>
               </li>
             ))}
@@ -245,12 +245,12 @@ export default function DashboardPage() {
               onClick={branchPage.showMore}
               className="mt-3 w-full rounded-md border border-line py-2 text-sm font-medium text-ink-600 hover:bg-surface"
             >
-              Ver más ({branchPage.remaining} restantes)
+              Show more ({branchPage.remaining} left)
             </button>
           )}
           {branches.length === 0 && (
             <p className="text-sm text-ink-600">
-              Sin sucursales todavía para este tenant.
+              No branches yet for this business.
             </p>
           )}
         </section>
@@ -260,16 +260,16 @@ export default function DashboardPage() {
         <div className="mb-3 flex flex-wrap items-end justify-between gap-3">
           <div>
             <h2 className="text-sm font-medium text-ink-600">
-              Reservas{bookings !== null ? ` (${bookingPage.total})` : ''}
+              Bookings{bookings !== null ? ` (${bookingPage.total})` : ''}
             </h2>
             {canOperate && (
               <p className="mt-0.5 text-xs text-ink-400">
-                Las pendientes van primero. Solo admin y staff aceptan o rechazan.
+                Pending bookings come first. Only admins and staff can accept or reject them.
               </p>
             )}
             {isClient && (
               <p className="mt-0.5 text-xs text-ink-400">
-                Pediste el turno. El local lo confirma; vos no ves ese botón.
+                You requested these appointments. The business confirms them.
               </p>
             )}
           </div>
@@ -278,8 +278,8 @@ export default function DashboardPage() {
               type="search"
               value={bookingPage.query}
               onChange={(e) => bookingPage.onQueryChange(e.target.value)}
-              aria-label="Buscar reserva"
-              placeholder="Buscar reserva…"
+              aria-label="Search bookings"
+              placeholder="Search bookings…"
               className={searchInputClass}
             />
           )}
@@ -287,19 +287,19 @@ export default function DashboardPage() {
 
         {bookingsError && (
           <p role="alert" className="rounded bg-rust-bg px-3 py-2 text-sm text-rust-dark">
-            Error consultando reservas: {bookingsError}
+            Could not load bookings: {bookingsError}
           </p>
         )}
 
         {bookings === null && !bookingsError && (
-          <p className="text-sm text-ink-600">Cargando reservas…</p>
+          <p className="text-sm text-ink-600">Loading bookings…</p>
         )}
 
         {bookings !== null && bookings.length === 0 && !bookingsError && (
           <p className="text-sm text-ink-600">
-            Sin reservas todavía —{' '}
+            No bookings yet —{' '}
             <Link href="/book" className="font-medium text-pine underline underline-offset-2">
-              creá la primera
+              create the first one
             </Link>
             .
           </p>
@@ -319,7 +319,7 @@ export default function DashboardPage() {
                       {b.branch?.name ?? b.branchId} · {b.staff?.user.email ?? b.staffId}
                     </p>
                     {canOperate && b.client?.email && (
-                      <p className="text-ink-600">Cliente: {b.client.email}</p>
+                      <p className="text-ink-600">Client: {b.client.email}</p>
                     )}
                     <p className="text-ink-600">{new Date(b.startTime).toLocaleString()}</p>
                   </div>
@@ -340,7 +340,7 @@ export default function DashboardPage() {
                           disabled={actioningId !== null}
                           className={`${actionButtonClass} border-pine text-pine hover:bg-pine-bg`}
                         >
-                          {actioningId === b.id ? '…' : 'Aceptar'}
+                          {actioningId === b.id ? '…' : 'Accept'}
                         </button>
                         <button
                           type="button"
@@ -348,7 +348,7 @@ export default function DashboardPage() {
                           disabled={actioningId !== null}
                           className={`${actionButtonClass} border-rust text-rust hover:bg-rust-bg`}
                         >
-                          {actioningId === b.id ? '…' : 'Rechazar'}
+                          {actioningId === b.id ? '…' : 'Reject'}
                         </button>
                       </div>
                     )}
@@ -360,7 +360,7 @@ export default function DashboardPage() {
                         disabled={actioningId !== null}
                         className={`${actionButtonClass} border-rust text-rust hover:bg-rust-bg`}
                       >
-                        {actioningId === b.id ? '…' : 'Cancelar solicitud'}
+                        {actioningId === b.id ? '…' : 'Cancel request'}
                       </button>
                     )}
 
@@ -379,7 +379,7 @@ export default function DashboardPage() {
                 onClick={bookingPage.showMore}
                 className="mt-3 w-full rounded-md border border-line py-2 text-sm font-medium text-ink-600 hover:bg-surface"
               >
-                Ver más ({bookingPage.remaining} restantes)
+                Show more ({bookingPage.remaining} left)
               </button>
             )}
           </>

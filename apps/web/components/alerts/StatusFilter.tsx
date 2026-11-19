@@ -11,7 +11,7 @@ const OPTIONS: StatusFilterValue[] = ['ALL', ...BOOKING_STATUSES];
 
 export function StatusFilter({ value, onChange, counts }: StatusFilterProps) {
   return (
-    <div role="group" aria-label="Filtrar por estado" className="flex flex-wrap gap-2">
+    <div role="group" aria-label="Filter by status" className="flex flex-wrap gap-2">
       {OPTIONS.map((option) => {
         const active = option === value;
         return (
@@ -26,7 +26,7 @@ export function StatusFilter({ value, onChange, counts }: StatusFilterProps) {
                 : 'border-line bg-surface text-ink-600 hover:border-ink-400'
             }`}
           >
-            {option === 'ALL' ? 'Todas' : option}{' '}
+            {option === 'ALL' ? 'All' : option}{' '}
             <span className="tabular-nums">({counts[option]})</span>
           </button>
         );

@@ -14,18 +14,18 @@ The first request after idle can take ~30–50 seconds (hosted API spins down). 
 
 Password for all accounts: `ChangeMe123!`
 
-| Role | Email | Login → Tenant |
+| Role | Email | Login → Business |
 |------|--------|----------------|
-| Client (requests a booking) | `cliente@tenant.dev` | Tenant A or B |
-| Tenant admin (accepts / rejects) | `admin@tenant.dev` | Tenant A — Demo Clínica / Tenant B — Demo Salón |
-| Staff | `ana@tenant-a.dev` / `carlos@tenant-b.dev` | Tenant A / Tenant B |
+| Client (requests a booking) | `cliente@tenant.dev` | Business A or B |
+| Tenant admin (accepts / rejects) | `admin@tenant.dev` | Business A — Demo Clinic / Business B — Demo Salon |
+| Staff | `ana@tenant-a.dev` / `carlos@tenant-b.dev` | Business A / Business B |
 | Platform admin | `admin@bookingsaas.dev` | Super admin |
 
-Walkthrough: login as **cliente** → Tenant A → **Sucursal Centro** → New booking → weekday slot. Then logout and login as **admin** of the same tenant: pending rows are at the top → Aceptar or Rechazar. Tenant B has a different catalog and timezone (`America/Mexico_City`).
+Walkthrough: login as **cliente** → Business A → **Sucursal Centro** → New booking → weekday slot. Then sign out and sign in as **admin** of the same business: pending rows are at the top → Accept or Reject. Business B has a different catalog and timezone (`America/Mexico_City`).
 
 ## Alerts center
 
-`/alerts` (tenant admin and staff only) shows which bookings need a decision now: priority KPIs, status filters and a list sorted by urgency. Sign in as **admin** → **Alertas** → **Demo** for a self-contained dataset; **Datos reales** shows the tenant's own bookings.
+`/alerts` (tenant admin and staff only) shows which bookings need a decision now: priority KPIs, status filters and a list sorted by urgency. Sign in as **admin** → **Alerts** → **Demo** for a self-contained dataset; **Live data** shows the tenant's own bookings.
 
 The API has no severity field, so priority is derived client-side by pure, tested functions in [`apps/web/lib/alerts.ts`](apps/web/lib/alerts.ts):
 
