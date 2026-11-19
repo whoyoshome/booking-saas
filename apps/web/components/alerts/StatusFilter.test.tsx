@@ -26,11 +26,11 @@ describe('StatusFilter', () => {
     expect(screen.getByRole('group', { name: 'Filter by status' })).toBeInTheDocument();
     for (const name of [
       'All (15)',
-      'PENDING (6)',
-      'CONFIRMED (4)',
-      'CANCELLED (2)',
-      'COMPLETED (2)',
-      'NO_SHOW (1)',
+      'Pending (6)',
+      'Confirmed (4)',
+      'Cancelled (2)',
+      'Completed (2)',
+      'No-show (1)',
     ]) {
       expect(screen.getByRole('button', { name })).toBeInTheDocument();
     }
@@ -39,15 +39,15 @@ describe('StatusFilter', () => {
   it('marks only the current option as pressed', () => {
     setup('PENDING');
 
-    expect(screen.getByRole('button', { name: 'PENDING (6)' })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByRole('button', { name: 'Pending (6)' })).toHaveAttribute('aria-pressed', 'true');
     expect(screen.getByRole('button', { name: 'All (15)' })).toHaveAttribute('aria-pressed', 'false');
-    expect(screen.getByRole('button', { name: 'CONFIRMED (4)' })).toHaveAttribute('aria-pressed', 'false');
+    expect(screen.getByRole('button', { name: 'Confirmed (4)' })).toHaveAttribute('aria-pressed', 'false');
   });
 
   it('reports the clicked status', async () => {
     const { onChange, user } = setup();
 
-    await user.click(screen.getByRole('button', { name: 'NO_SHOW (1)' }));
+    await user.click(screen.getByRole('button', { name: 'No-show (1)' }));
 
     expect(onChange).toHaveBeenCalledTimes(1);
     expect(onChange).toHaveBeenCalledWith('NO_SHOW');

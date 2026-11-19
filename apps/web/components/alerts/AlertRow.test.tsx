@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { makeBooking, minutesFrom, NOW, pending } from '../../test/helpers';
 import type { Booking } from '../../lib/types';
 import { AlertRow } from './AlertRow';
+import { STATUS_LABEL } from '../status-style';
 
 function renderRow(booking: Booking, showManageLink = false) {
   render(
@@ -18,7 +19,7 @@ describe('AlertRow — PENDING', () => {
     const row = renderRow(pending(2, 40));
 
     expect(row).toHaveTextContent('Critical');
-    expect(row).toHaveTextContent('PENDING');
+    expect(row).toHaveTextContent('Pending');
     expect(row).toHaveTextContent('Expires in 2 min');
     expect(row).toHaveTextContent('Starts in 40 min');
   });
@@ -44,7 +45,7 @@ describe('AlertRow — PENDING', () => {
 });
 
 describe('AlertRow — CONFIRMED', () => {
-  it('an upcoming one is Normal, plain CONFIRMED, and shows when it starts', () => {
+  it('an upcoming one is Normal, plain Confirmed, and shows when it starts', () => {
     const row = renderRow(makeBooking({ startTime: minutesFrom(90), endTime: minutesFrom(120) }));
 
     expect(row).toHaveTextContent('Normal');
@@ -53,12 +54,12 @@ describe('AlertRow — CONFIRMED', () => {
     expect(row).not.toHaveTextContent('Expires');
   });
 
-  it('one that is over reads as closed: "CONFIRMED · ended", no countdowns', () => {
+  it('one that is over reads as closed: "Confirmed · ended", no countdowns', () => {
     const row = renderRow(
       makeBooking({ startTime: minutesFrom(-3 * 24 * 60), endTime: minutesFrom(-3 * 24 * 60 + 30) }),
     );
 
-    expect(row).toHaveTextContent('CONFIRMED · ended');
+    expect(row).toHaveTextContent('Confirmed · ended');
     expect(row).toHaveTextContent('Closed');
     expect(row).not.toHaveTextContent('Normal');
     expect(row).not.toHaveTextContent('Starts');
@@ -79,7 +80,7 @@ describe('AlertRow — closed statuses', () => {
   it.each(['CANCELLED', 'COMPLETED', 'NO_SHOW'] as const)('%s is Closed with no countdowns', (status) => {
     const row = renderRow(makeBooking({ status }));
 
-    expect(row).toHaveTextContent(status);
+    expect(row).toHaveTextContent(STATUS_LABEL[status]);
     expect(row).toHaveTextContent('Closed');
     expect(row).not.toHaveTextContent('ended');
     expect(row).not.toHaveTextContent('Starts');

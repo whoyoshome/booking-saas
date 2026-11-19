@@ -98,11 +98,11 @@ describe('/alerts — demo mode', () => {
 
     for (const name of [
       'All (15)',
-      'PENDING (6)',
-      'CONFIRMED (4)',
-      'CANCELLED (2)',
-      'COMPLETED (2)',
-      'NO_SHOW (1)',
+      'Pending (6)',
+      'Confirmed (4)',
+      'Cancelled (2)',
+      'Completed (2)',
+      'No-show (1)',
     ]) {
       expect(screen.getByRole('button', { name })).toBeInTheDocument();
     }
@@ -132,21 +132,21 @@ describe('/alerts — demo mode', () => {
     const user = userEvent.setup();
     render(<AlertsPage />);
 
-    await user.click(screen.getByRole('button', { name: 'PENDING (6)' }));
+    await user.click(screen.getByRole('button', { name: 'Pending (6)' }));
     expect(listRows()).toHaveLength(6);
 
-    await user.click(screen.getByRole('button', { name: 'NO_SHOW (1)' }));
+    await user.click(screen.getByRole('button', { name: 'No-show (1)' }));
     expect(listRows()).toHaveLength(1);
   });
 
-  it('shows the finished CONFIRMED under the CONFIRMED chip, labelled as finished', async () => {
+  it('shows the finished CONFIRMED booking under the Confirmed chip, labelled as ended', async () => {
     const user = userEvent.setup();
     render(<AlertsPage />);
 
-    await user.click(screen.getByRole('button', { name: 'CONFIRMED (4)' }));
+    await user.click(screen.getByRole('button', { name: 'Confirmed (4)' }));
 
     expect(listRows()).toHaveLength(4);
-    const finished = screen.getAllByText('CONFIRMED · ended');
+    const finished = screen.getAllByText('Confirmed · ended');
     expect(finished).toHaveLength(1);
     expect(finished[0].closest('li')).toHaveTextContent('Closed');
   });
@@ -180,15 +180,15 @@ describe('/alerts — switching the data source resets the filter', () => {
     mocks.apiFetch.mockResolvedValue(jsonResponse(liveBookings()));
     const { rerender } = render(<AlertsPage />);
 
-    await user.click(screen.getByRole('button', { name: 'PENDING (6)' }));
-    expect(screen.getByRole('button', { name: 'PENDING (6)' })).toHaveAttribute('aria-pressed', 'true');
+    await user.click(screen.getByRole('button', { name: 'Pending (6)' }));
+    expect(screen.getByRole('button', { name: 'Pending (6)' })).toHaveAttribute('aria-pressed', 'true');
 
     mocks.state.search = '';
     rerender(<AlertsPage />);
 
     const all = await screen.findByRole('button', { name: /^All/ });
     expect(all).toHaveAttribute('aria-pressed', 'true');
-    expect(screen.getByRole('button', { name: /^PENDING/ })).toHaveAttribute('aria-pressed', 'false');
+    expect(screen.getByRole('button', { name: /^Pending/ })).toHaveAttribute('aria-pressed', 'false');
   });
 
   it('goes back to "All" when moving from Live data to Demo', async () => {
@@ -196,8 +196,8 @@ describe('/alerts — switching the data source resets the filter', () => {
     mocks.apiFetch.mockResolvedValue(jsonResponse(liveBookings()));
     const { rerender } = render(<AlertsPage />);
 
-    await user.click(await screen.findByRole('button', { name: /^PENDING/ }));
-    expect(screen.getByRole('button', { name: /^PENDING/ })).toHaveAttribute('aria-pressed', 'true');
+    await user.click(await screen.findByRole('button', { name: /^Pending/ }));
+    expect(screen.getByRole('button', { name: /^Pending/ })).toHaveAttribute('aria-pressed', 'true');
 
     mocks.state.search = 'demo=1';
     rerender(<AlertsPage />);
@@ -267,9 +267,9 @@ describe('/alerts — real data', () => {
     mocks.apiFetch.mockResolvedValue(jsonResponse([makeBooking({ id: 'only' }, new Date())]));
     render(<AlertsPage />);
 
-    await user.click(await screen.findByRole('button', { name: 'PENDING (0)' }));
+    await user.click(await screen.findByRole('button', { name: 'Pending (0)' }));
 
-    expect(screen.getByText('No PENDING bookings.')).toBeInTheDocument();
+    expect(screen.getByText('No bookings with status Pending.')).toBeInTheDocument();
   });
 
   it('refetches on "Refresh"', async () => {

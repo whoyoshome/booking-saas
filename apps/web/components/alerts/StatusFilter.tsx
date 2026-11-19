@@ -1,4 +1,5 @@
 import { BOOKING_STATUSES, type StatusFilter as StatusFilterValue } from '../../lib/alerts';
+import { STATUS_LABEL } from '../status-style';
 
 interface StatusFilterProps {
   value: StatusFilterValue;
@@ -26,7 +27,7 @@ export function StatusFilter({ value, onChange, counts }: StatusFilterProps) {
                 : 'border-line bg-surface text-ink-600 hover:border-ink-400'
             }`}
           >
-            {option === 'ALL' ? 'All' : option}{' '}
+            {option === 'ALL' ? 'All' : STATUS_LABEL[option]}{' '}
             <span className="tabular-nums">({counts[option]})</span>
           </button>
         );

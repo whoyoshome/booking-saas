@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { useAuth } from '../../lib/auth-context';
 import { apiFetch } from '../../lib/api-client';
 import { Header } from '../../components/Header';
+import { STATUS_LABEL } from '../../components/status-style';
 import type {
   Branch,
   Service,
@@ -538,7 +539,7 @@ function BookPageContent() {
       {step === 'done' && createdBooking && (
         <section className="rounded border border-pine bg-pine-bg p-4">
           <h2 ref={stepHeadingRef} tabIndex={-1} className="font-medium text-pine-dark">
-            Booking created — status: {createdBooking.status}
+            Booking created — status: {STATUS_LABEL[createdBooking.status]}
           </h2>
           <p className="mt-1 text-sm text-pine-dark">
             {user?.role === 'CLIENT'

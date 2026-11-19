@@ -69,8 +69,8 @@ describe('/dashboard — bookings list', () => {
 
     const [first, second] = await bookingRows();
     expect(within(first).getByText('Haircut')).toBeInTheDocument();
-    expect(within(first).getByText('PENDING')).toBeInTheDocument();
-    expect(within(second).getByText('CONFIRMED')).toBeInTheDocument();
+    expect(within(first).getByText('Pending')).toBeInTheDocument();
+    expect(within(second).getByText('Confirmed')).toBeInTheDocument();
 
     const actions = within(first)
       .getAllByRole('button')
@@ -80,7 +80,7 @@ describe('/dashboard — bookings list', () => {
     expect(within(second).queryByRole('button')).not.toBeInTheDocument();
   });
 
-  it('accepting a pending booking calls PATCH /confirm and updates the row to CONFIRMED', async () => {
+  it('accepting a pending booking calls PATCH /confirm and updates the row to Confirmed', async () => {
     const fetchMock = renderDashboard('TENANT_ADMIN', {
       'PATCH /bookings/pending-1/confirm': { status: 200, body: {} },
     });
@@ -88,7 +88,7 @@ describe('/dashboard — bookings list', () => {
     const [pendingRow] = await bookingRows();
     await userEvent.click(within(pendingRow).getByRole('button', { name: 'Accept' }));
 
-    expect(await within(pendingRow).findByText('CONFIRMED')).toBeInTheDocument();
+    expect(await within(pendingRow).findByText('Confirmed')).toBeInTheDocument();
     expect(within(pendingRow).queryByRole('button')).not.toBeInTheDocument();
     expect(fetchMock).toHaveBeenCalledWith(
       'http://localhost:3001/bookings/pending-1/confirm',

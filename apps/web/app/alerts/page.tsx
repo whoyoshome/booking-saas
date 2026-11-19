@@ -20,11 +20,12 @@ import { usePagedList } from '../../components/use-paged-list';
 import { KpiCard } from '../../components/alerts/KpiCard';
 import { StatusFilter } from '../../components/alerts/StatusFilter';
 import { AlertRow } from '../../components/alerts/AlertRow';
+import { STATUS_LABEL } from '../../components/status-style';
 
 // Module-level so its identity is stable across renders (usePagedList
 // memoizes on it).
 function matchBooking(b: Booking, q: string) {
-  return `${b.service?.name ?? ''} ${b.branch?.name ?? ''} ${b.status} ${b.client?.email ?? ''} ${b.staff?.user.email ?? ''}`
+  return `${b.service?.name ?? ''} ${b.branch?.name ?? ''} ${STATUS_LABEL[b.status]} ${b.client?.email ?? ''} ${b.staff?.user.email ?? ''}`
     .toLowerCase()
     .includes(q);
 }
@@ -221,7 +222,9 @@ function AlertsView({ isDemo }: { isDemo: boolean }) {
           )}
 
           {data.length > 0 && visible.length === 0 && (
-            <p className="text-sm text-ink-600">No {filter} bookings.</p>
+            <p className="text-sm text-ink-600">
+              No bookings with status {filter === 'ALL' ? 'All' : STATUS_LABEL[filter]}.
+            </p>
           )}
 
           {visible.length > 0 && page.total === 0 && (

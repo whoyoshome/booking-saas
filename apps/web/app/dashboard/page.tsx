@@ -8,6 +8,7 @@ import { apiFetch } from '../../lib/api-client';
 import { Header } from '../../components/Header';
 import { AiAssistPlaceholder } from '../../components/AiAssistFrame';
 import { usePagedList } from '../../components/use-paged-list';
+import { STATUS_BADGE, STATUS_ICON, STATUS_LABEL, STATUS_ROW } from '../../components/status-style';
 import type { Branch, Booking } from '../../lib/types';
 
 // Only TENANT_ADMIN/STAFF ever render the assistant, so it's split into
@@ -23,39 +24,8 @@ function matchBranch(b: Branch, q: string) {
 }
 
 function matchBooking(b: Booking, q: string) {
-  return `${b.service?.name ?? ''} ${b.branch?.name ?? ''} ${b.status} ${b.client?.email ?? ''}`.toLowerCase().includes(q);
+  return `${b.service?.name ?? ''} ${b.branch?.name ?? ''} ${STATUS_LABEL[b.status]} ${b.client?.email ?? ''}`.toLowerCase().includes(q);
 }
-
-// Status carries meaning through color, not just text — same three-color
-// system used across the app (pine = confirmed/good, gold = pending/needs
-// attention, rust = cancelled/failed). COMPLETED and NO_SHOW share the
-// neutral/rust treatment since they're both "no longer actionable".
-const STATUS_STYLE: Record<Booking['status'], string> = {
-  PENDING: 'bg-gold-bg text-gold-dark',
-  CONFIRMED: 'bg-pine-bg text-pine-dark',
-  CANCELLED: 'bg-rust-bg text-rust-dark',
-  COMPLETED: 'bg-line text-ink-600',
-  NO_SHOW: 'bg-rust-bg text-rust-dark',
-};
-
-// Left border on each row repeats the status color so a long list can be
-// scanned by color alone, without reading the badge text. PENDING also
-// gets a tinted row background: it's the only state that needs action.
-const STATUS_ROW: Record<Booking['status'], string> = {
-  PENDING: 'border-l-gold bg-gold-bg/40',
-  CONFIRMED: 'border-l-pine bg-surface',
-  CANCELLED: 'border-l-rust bg-surface',
-  COMPLETED: 'border-l-ink-400 bg-surface',
-  NO_SHOW: 'border-l-rust bg-surface',
-};
-
-const STATUS_ICON: Record<Booking['status'], string> = {
-  PENDING: '⏱',
-  CONFIRMED: '✓',
-  CANCELLED: '✕',
-  COMPLETED: '✓',
-  NO_SHOW: '!',
-};
 
 const searchInputClass =
   'w-full max-w-xs rounded-md border border-line bg-surface px-3 py-1.5 text-sm placeholder:text-ink-400 focus-visible:border-pine';
@@ -326,10 +296,10 @@ export default function DashboardPage() {
 
                   <div className="flex shrink-0 flex-col items-start gap-1.5 sm:items-end">
                     <span
-                      className={`inline-flex items-center gap-1 rounded px-2 py-0.5 text-xs font-semibold ${STATUS_STYLE[b.status]}`}
+                      className={`inline-flex items-center gap-1 rounded px-2 py-0.5 text-xs font-semibold ${STATUS_BADGE[b.status]}`}
                     >
                       <span aria-hidden="true">{STATUS_ICON[b.status]}</span>
-                      {b.status}
+                      {STATUS_LABEL[b.status]}
                     </span>
 
                     {canOperate && b.status === 'PENDING' && (

@@ -16,7 +16,7 @@ test('a client books a free slot and gets a PENDING booking', async ({ page, req
   await page.getByRole('button', { name: 'Confirm booking' }).click();
   expect((await created).status()).toBe(201);
 
-  await expect(page.getByText('Booking created — status: PENDING')).toBeVisible();
+  await expect(page.getByText('Booking created — status: Pending')).toBeVisible();
 });
 
 test('if someone else takes the slot first, the API answers 409 and the UI recovers', async ({ page, request }) => {

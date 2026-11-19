@@ -4,6 +4,7 @@ import { describeExpiry, describeStart, minutesFromNow } from '../../lib/format-
 import type { Booking } from '../../lib/types';
 import { PriorityBadge } from './PriorityBadge';
 import { PRIORITY_ROW } from './priority-style';
+import { STATUS_LABEL } from '../status-style';
 
 interface AlertRowProps {
   booking: Booking;
@@ -27,7 +28,8 @@ export function AlertRow({ booking, now, showManageLink = false }: AlertRowProps
   // ever moves it to COMPLETED), the priority says CLOSED. Say both, so it
   // doesn't look like a contradiction when it shows up under the CONFIRMED chip.
   const finished = booking.status === 'CONFIRMED' && priority === 'CLOSED';
-  const statusText = finished ? `${booking.status} · ended` : booking.status;
+  const statusLabel = STATUS_LABEL[booking.status];
+  const statusText = finished ? `${statusLabel} · ended` : statusLabel;
 
   const startHint =
     priority === 'CLOSED' ? '' : describeStart(minutesFromNow(booking.startTime, now));
