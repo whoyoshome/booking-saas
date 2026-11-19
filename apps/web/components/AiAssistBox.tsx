@@ -2,6 +2,7 @@
 
 import { useState, type FormEvent } from 'react';
 import { apiFetch } from '../lib/api-client';
+import { AiAssistFrame } from './AiAssistFrame';
 
 interface AssistResponse {
   answer: string;
@@ -59,12 +60,7 @@ export function AiAssistBox() {
   }
 
   return (
-    <section className="mb-8 rounded-lg border p-4">
-      <h2 className="mb-1 text-sm font-medium text-ink-600">Asistente (beta)</h2>
-      <p className="mb-3 text-xs text-ink-400">
-        Responde solo con las reservas PENDING de este tenant — nunca crea, confirma ni cancela nada.
-      </p>
-
+    <AiAssistFrame>
       <form onSubmit={handleSubmit} className="flex gap-2">
         {/* The placeholder is an example question, not a label — it
             disappears as soon as someone types. */}
@@ -108,6 +104,6 @@ export function AiAssistBox() {
           )}
         </div>
       )}
-    </section>
+    </AiAssistFrame>
   );
 }
