@@ -1,43 +1,50 @@
-# AI assist — contrato anti-alucinación
+# AI assist
 
-`POST /ai/assist` es un asistente de solo lectura embebido en el dashboard de admin/staff. Responde preguntas sobre las reservas `PENDING` del tenant que hace la consulta. Este documento es el contrato: qué garantiza, qué no, y por qué está diseñado así.
+`POST /ai/assist` is a read-only assistant in the admin/staff dashboard. It answers questions about the requesting tenant's `PENDING` bookings. This document is its contract: what it guarantees, what it does not, and why.
 
-## Quién puede usarlo
+## Access
 
-`@TenantScoped()` + `@Roles(TENANT_ADMIN, STAFF)` — mismo mecanismo que protege el resto de la API (ver `AGENTS.md`). Un `CLIENT` recibe `403` antes de que el request llegue al service. Rate limit estricto: `5` requests / `60s` — más estricto que el default global (`100/60s`) e incluso que el de login (`5/60s`, pero acá el costo por request es real dinero de la API del LLM, no solo carga de servidor).
+- `@TenantScoped()` plus `@Roles(TENANT_ADMIN, STAFF)`, the same mechanism as the rest of the API. A `CLIENT` receives `403` before the request reaches the service.
+- Rate limit: 5 requests per 60 seconds, stricter than the global 100 per 60 seconds, because every request has a direct LLM cost.
 
-## Grounding: de dónde sale la respuesta
+## Grounding
 
-La única fuente de datos que ve el modelo son las reservas `PENDING` del tenant que hace la request, consultadas vía `this.prisma.client.booking.findMany(...)` — **nunca** `this.prisma` directo. Esto significa:
+The only data the model sees is the tenant's `PENDING` bookings, loaded with `this.prisma.client.booking.findMany(...)`, never `this.prisma`.
 
-- RLS acota la query al tenant del caller, exactamente igual que cualquier otra query tenant-scoped de este proyecto — no hay una ruta de acceso especial para IA.
-- Sin escritura, nunca. El service no tiene ningún método que llame `.create`/`.update`/`.delete`. Confirmar o cancelar una reserva sigue pasando por `PATCH /bookings/:id/confirm|cancel`, con su propio RBAC y sus propias reglas de negocio — una respuesta del asistente es texto informativo, nunca un efecto de lado.
-- Tope de 50 reservas por consulta (`MAX_GROUNDING_BOOKINGS`) — acota el costo de tokens y es, de paso, un techo razonable de lo que un admin puede revisar de una sentada.
+- RLS scopes the query to the caller's tenant, like every other tenant-scoped query. There is no separate access path for AI.
+- No writes. The service never calls `create`, `update` or `delete`. Confirming or cancelling still goes through `PATCH /bookings/:id/confirm|cancel` with its own RBAC and business rules; an answer is informational text, never a side effect.
+- At most 50 bookings per request (`MAX_GROUNDING_BOOKINGS`), which bounds token cost.
 
-## El prompt anti-alucinación
+## System prompt
 
-El system prompt exacto (`ai-assist.service.ts`):
+The exact prompt in `ai-assist.service.ts`:
 
 > You are a read-only assistant embedded in a booking admin dashboard. Answer ONLY using the JSON data provided in the next message — it is the complete and only source of truth available to you. If the answer is not fully contained in that JSON, say explicitly that you do not have that information — never guess, estimate, or invent a booking, time, or name that is not present in the data. You have no ability to create, confirm, or cancel bookings, and no access to any data beyond what is given below — never imply that you performed, or can perform, any action, and never reference information outside the provided JSON. Answer in the same language as the question.
 
-Tres garantías explícitas en ese texto, no implícitas:
-1. **La única fuente de verdad es el JSON adjunto** — no el conocimiento general del modelo.
-2. **Decir "no tengo esa información" es una respuesta válida y esperada**, no una falla.
-3. **Nunca implicar que ejecutó una acción** — el modelo no tiene ninguna tool de escritura, pero el prompt lo deja explícito igual, para que no redacte una respuesta ambigua tipo "listo, confirmé la reserva" cuando no hizo nada.
+It states three guarantees explicitly:
 
-`temperature: 0` — determinismo, no creatividad. Esto es una herramienta de datos administrativos, no un chatbot conversacional.
+1. The attached JSON is the only source of truth, not the model's general knowledge.
+2. "I don't have that information" is a valid, expected answer.
+3. The model never implies it performed an action. It has no write tools, but the prompt rules out ambiguous replies such as "done, I confirmed the booking".
 
-## Sin `OPENAI_API_KEY` configurada
+`temperature: 0`: this is an administrative data tool, not a conversational one.
 
-`503 Service Unavailable` con el mensaje `"AI assist is not configured on this environment (missing OPENAI_API_KEY)."` — explícito, no un error genérico. **Este es el comportamiento por defecto tanto en CI como en la demo pública actual** (no hay ningún secret de OpenAI configurado en ninguno de los dos). El botón "Preguntar" del dashboard sigue visible para `TENANT_ADMIN`/`STAFF` — mostrar el mensaje de "no configurado" es mejor que ocultar la feature entera y que alguien se pregunte si está rota.
+## Missing configuration
 
-## Límite de testing conocido, dicho explícito
+Without `OPENAI_API_KEY`, the endpoint returns `503 Service Unavailable` with `"AI assist is not configured on this environment (missing OPENAI_API_KEY)."`. This is the default in CI and in the hosted demo. The dashboard still shows the button to admins and staff, so the feature reports itself as unconfigured instead of looking broken. Upstream failures and empty model responses also return `503`.
 
-`apps/api/test/ai-assist.e2e-spec.ts` prueba los 3 guardarraíles verificables sin una API key real: RBAC (`403` para `CLIENT`), validación de input (`400`), y el contrato de `503` sin configurar — que es exactamente lo que CI ejercita, porque CI no tiene `OPENAI_API_KEY` como secret a propósito. **Lo que el e2e no prueba:** el camino feliz real (una llamada exitosa a OpenAI) ni que el prompt efectivamente evita alucinaciones en la práctica — eso requeriría una key real y gasto de dinero en cada corrida de CI, lo cual no se justifica para este alcance. El aislamiento por RLS de la query de grounding se confía por consistencia con el patrón ya probado extensivamente en `tenant-isolation.e2e-spec.ts`, no se re-prueba a través de este endpoint específico.
+## Test coverage
 
-## Qué NO es esta feature
+`apps/api/test/ai-assist.e2e-spec.ts` covers what can be verified without a real key: RBAC (`403` for `CLIENT`), input validation (`400`) and the `503` contract.
 
-- No es un agente que actúa — solo responde texto.
-- No es RAG ni usa embeddings — eso es Fase 3, explícitamente no planificada todavía (ver `AGENTS.md`).
-- No tiene memoria entre requests — cada pregunta es un request nuevo, sin historial de conversación.
-- No consulta disponibilidad (`GET /availability`) todavía — el grounding actual es solo reservas `PENDING`. Ampliarlo es un cambio de scope explícito, no algo para agregar en silencio.
+Not covered:
+
+- A successful OpenAI call, and whether the prompt prevents hallucinations in practice. Both would need a real key and incur cost on every CI run.
+- RLS isolation of the grounding query through this endpoint. It relies on the same pattern that `tenant-isolation.e2e-spec.ts` already tests.
+
+## Non-goals
+
+- Not an agent: it returns text and takes no actions.
+- No RAG or embeddings (out of scope; see `AGENTS.md`).
+- No memory between requests; every question is independent.
+- Grounding is limited to `PENDING` bookings. Adding availability or other sources is an explicit scope change.

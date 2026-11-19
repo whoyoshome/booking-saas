@@ -5,15 +5,9 @@ import { CreateBranchDto } from './dto/create-branch.dto';
 import { UpdateBranchDto } from './dto/update-branch.dto';
 
 /**
- * No separate repository layer here, on purpose — same reasoning already
- * documented in the Phase 0 Technical Plan for simple CRUD modules: a
- * service calling Prisma directly is correct for branches/staff-style
- * entities, and a repository indirection would be an abstraction with no
- * real payoff yet. The one thing that DOES matter here: every query goes
- * through `this.prisma.client`, never `this.prisma` directly — `client` is
- * the getter that resolves to the RLS-scoped transactional connection set
- * up by TenantContextInterceptor (via @TenantScoped() on the controller).
- * Using `this.prisma` directly would silently bypass tenant isolation.
+ * Every query goes through `this.prisma.client`, the RLS-scoped transaction
+ * opened by TenantContextInterceptor. Using `this.prisma` directly would
+ * silently bypass tenant isolation.
  */
 @Injectable()
 export class BranchesService {

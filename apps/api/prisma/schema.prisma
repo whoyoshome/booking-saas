@@ -19,9 +19,7 @@ enum TenantStatus {
   SUSPENDED
 }
 
-// Phase 3 — Multi-tenancy. Minimal model: only what's needed to resolve
-// the tenant at login and anchor data isolation. branches, services, etc.
-// arrive in Phase 4.
+// Multi-tenancy root: resolves the tenant at login and anchors data isolation.
 model Tenant {
   id   String @id @default(uuid())
   name String
@@ -32,8 +30,7 @@ model Tenant {
   // don't want that change to mean rewriting FKs across the system.
   slug String @unique
 
-  // Tenant default timezone. Branches will be able to override it in
-  // Phase 4 (a tenant with branches in different cities/countries).
+  // Tenant default timezone. Each Branch carries its own timezone.
   timezone String @default("UTC")
 
   status TenantStatus @default(ACTIVE)
@@ -55,10 +52,7 @@ model Tenant {
   @@map("tenants")
 }
 
-// DESIGN NOTE — composite uniqueness restored:
-// Phase 2 relaxed `email` to GLOBALLY unique because login could not resolve
-// the tenant before looking up the user. Now that the Tenant model exists,
-// this is the final design: email unique PER TENANT.
+// DESIGN NOTE — email is unique PER TENANT, not globally.
 //
 // Known and accepted edge case: in PostgreSQL, a composite UNIQUE treats
 // each NULL as distinct from every other NULL. Since `tenantId` is NULL for
@@ -95,7 +89,7 @@ model User {
   @@map("users")
 }
 
-// Phase 4, Step 1 — first real business entity. Unlike User.tenantId,
+// Unlike User.tenantId,
 // Branch.tenantId is NOT nullable: a branch always belongs to exactly one
 // tenant, there is no "super-admin-owned" branch equivalent to a
 // SUPER_ADMIN user.
@@ -128,11 +122,9 @@ model Branch {
   @@map("branches")
 }
 
-// Phase 4, Step 2 — the service a business offers (e.g. "Corte de cabello",
-// "Consulta general"). durationMinutes + bufferMinutes is what the Phase 0
-// Technical Plan's booking design relies on: the exclusion constraint in
-// Phase 6 (general roadmap) will block the effective range
-// [start, end + bufferMinutes), so the cleanup/prep time is enforced by
+// A service a business offers (e.g. "Haircut", "General consultation").
+// The bookings exclusion constraint blocks the effective range
+// [start, end + bufferMinutes), so cleanup/prep time is enforced by
 // PostgreSQL itself, not by application logic remembering to add it.
 //
 // price uses Decimal, never Float — money should never be represented with
@@ -173,12 +165,11 @@ model Service {
   @@map("services")
 }
 
-// Phase 4, Step 3 — a STAFF-role user's employment profile: which tenant,
-// which branch, and (via StaffService) which services they can perform.
+// A STAFF-role user's employment profile: which tenant, which branch, and
+// (via StaffService) which services they can perform.
 //
 // DECISION — Staff creation provisions the User too, in the same
-// operation. There is no invite/magic-link flow yet (that's Phase 17 of
-// the general roadmap, Notifications), so POST /staff creates a new User
+// operation. There is no invite/magic-link flow yet, so POST /staff creates a new User
 // (role STAFF) with a generated temporary password, returned ONCE in the
 // response, alongside the Staff profile. This is a known, deliberate
 // simplification — not the final design — revisit when a real invite flow
@@ -229,18 +220,15 @@ model StaffService {
   @@map("staff_services")
 }
 
-// Phase 5, Step 0 (design) — recurring weekly availability for a staff
-// member. Deliberately staff-scoped only in this version; Branch-level
-// opening-hours as an additional constraint is a known, explicit gap for a
-// later step (see README.md Fase 5 notes) — not solved here.
+// Recurring weekly availability for a staff member. Branch opening hours
+// are a separate constraint (BranchSchedule).
 //
 // startTime/endTime are WALL-CLOCK LOCAL TIME (Prisma @db.Time), NOT UTC.
 // A recurring rule like "Monday 9am" only makes sense as local time — if
 // stored pre-converted to a UTC offset, DST transitions would silently
 // shift what "9am" means. The timezone to interpret these against is
-// staff.branch.timezone, resolved only at slot-calculation time (a later
-// step), never stored here. See the Fase 5 design notes for the full
-// reasoning.
+// staff.branch.timezone, resolved only at slot-calculation time
+// (AvailabilityService), never stored here.
 //
 // No overlap check here at the database level (no exclusion constraint,
 // unlike Booking's future time_range): editing a staff member's schedule
@@ -304,9 +292,8 @@ model StaffScheduleException {
   @@map("staff_schedule_exceptions")
 }
 
-// Phase 5, Step 3 — the branch's own opening hours, closing the gap left
-// open since Step 0: without this, AvailabilityService could return slots
-// while the branch itself is closed. Mirrors StaffSchedule/
+// The branch's own opening hours, so AvailabilityService never returns
+// slots while the branch itself is closed. Mirrors StaffSchedule/
 // StaffScheduleException exactly (same wall-clock-time reasoning, same
 // no-DB-exclusion-constraint reasoning, same replace-not-merge exception
 // rule) — the only real differences are the field name (`isOpen` instead
@@ -367,7 +354,7 @@ enum BookingStatus {
   NO_SHOW
 }
 
-// Fase 6 — the reservation itself. startTime/endTime are plain
+// The reservation itself. startTime/endTime are plain
 // @db.Timestamptz columns (Prisma has no native range type), NOT a
 // physical tstzrange column — the exclusion constraint (added via raw SQL
 // migration, not representable in schema.prisma) computes
@@ -375,13 +362,11 @@ enum BookingStatus {
 // keeps normal reads/writes on ordinary Prisma-typed columns while still
 // getting full EXCLUDE USING gist protection.
 //
-// endTime already includes service.bufferMinutes at creation time — the
-// "effective" range from the Phase 0 Technical Plan, so cleanup/prep time
-// is blocked by the constraint automatically, not by application logic.
+// endTime already includes service.bufferMinutes at creation time, so
+// cleanup/prep time is blocked by the constraint automatically.
 //
-// Both PENDING and CONFIRMED participate in the exclusion constraint
-// (approved in the Fase 3 adjustments, at project start): a checkout in
-// progress holds the slot immediately. PENDING rows are expired by a
+// Both PENDING and CONFIRMED participate in the exclusion constraint: a
+// checkout in progress holds the slot immediately. PENDING rows are expired by a
 // scheduled sweep (see bookings-cleanup.service.ts), not BullMQ — a
 // periodic sweep is simpler than per-booking scheduled jobs for this.
 model Booking {

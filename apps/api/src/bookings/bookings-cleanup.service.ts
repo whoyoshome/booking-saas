@@ -12,8 +12,7 @@ const PENDING_TTL_MINUTES = 10;
  * Expires abandoned PENDING bookings (checkout started, never confirmed)
  * so their held slot is released back to the exclusion constraint.
  *
- * DECISION (approved at project start, Fase 3 adjustments): a periodic
- * sweep, not BullMQ. This is a mass "cancel everything older than X"
+ * A periodic sweep, not BullMQ. This is a mass "cancel everything older than X"
  * operation identical on every run — it doesn't need per-job scheduling,
  * retries, or backoff, which is what BullMQ is actually for. Adding a
  * queue here would couple the availability of a core booking-integrity
@@ -38,12 +37,9 @@ export class BookingsCleanupService {
   async expireStalePendingBookings(): Promise<void> {
     const cutoff = new Date(Date.now() - PENDING_TTL_MINUTES * 60_000);
 
-    // Fase 8: also computes what to invalidate in Redis, inside the same
-    // bypass transaction — resolving each affected staff's branch
-    // timezone here (not after commit) keeps this a single atomic unit
-    // of work, and the cache invalidation itself happens right after,
-    // outside the transaction (Redis isn't transactional with Postgres,
-    // no point pretending otherwise).
+    // Also resolves which Redis keys to invalidate, inside the same
+    // transaction. The invalidation itself runs after commit, since Redis
+    // is not transactional with Postgres.
     const invalidations = await this.prisma.$transaction(async (tx) => {
       await tx.$executeRaw`SELECT set_config('app.is_super_admin', 'true', true)`;
 

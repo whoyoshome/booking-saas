@@ -17,16 +17,12 @@ interface StructuredErrorResponse {
 }
 
 /**
- * Two responsibilities, both required by the Fase 0 Technical Plan under
- * "Observabilidad" and never implemented until now:
- *   1. Every error response has the SAME shape, regardless of whether it
- *      came from a NestJS HttpException (ValidationPipe, a service
- *      throwing NotFoundException, etc.) or an unhandled exception.
- *   2. Every error is logged with the request's correlationId, so "a
- *      customer reports booking X failed" can be traced back to the
- *      exact server-side log line via the X-Request-Id they can be asked
- *      to share — this is the answer to the Fase 0 question "qué debemos
- *      poder investigar cuando una reserva falla".
+ * Two responsibilities:
+ *   1. Every error response has the SAME shape, whether it came from a
+ *      NestJS HttpException (ValidationPipe, NotFoundException, etc.) or an
+ *      unhandled exception.
+ *   2. Every error is logged with the request's correlationId, so a failed
+ *      booking can be traced to the exact log line via its X-Request-Id.
  *
  * 5xx logs the full stack (it's our bug); 4xx logs a one-line warning
  * without a stack (it's routine — a bad request, a 404, RLS-driven or

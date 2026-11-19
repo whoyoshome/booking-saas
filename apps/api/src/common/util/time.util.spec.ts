@@ -103,7 +103,7 @@ describe('time.util', () => {
       expect(formatCalendarDate(parsed)).toBe('2026-09-14');
     });
 
-    it('rejects a full ISO datetime with an offset — regression test for the Fase 5 fix', () => {
+    it('rejects a full ISO datetime with an offset', () => {
       // Before the fix, @IsDateString() let this slip past the DTO layer;
       // parseCalendarDate is the second line of defense and must reject
       // it outright, not silently truncate to the wrong calendar day.

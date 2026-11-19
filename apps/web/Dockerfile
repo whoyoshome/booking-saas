@@ -1,5 +1,4 @@
-# DEVELOPMENT Dockerfile. The production image (static build / standalone
-# output) will be defined in Phase 10.
+# Development image. The production image is Dockerfile.prod.
 FROM node:20-alpine
 
 WORKDIR /app

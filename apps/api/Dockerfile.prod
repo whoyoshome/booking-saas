@@ -1,6 +1,4 @@
-# PRODUCTION Dockerfile — multi-stage. The Fase 1 Dockerfile (npm run
-# start:dev, bind-mounted source) stays as-is for local development;
-# this one is what gets pushed to ECR and run in ECS.
+# Production image (multi-stage). Local development uses ./Dockerfile.
 
 # ---- Stage 1: builder ----
 # Has full devDependencies (needed for `nest build` and for the `prisma`
@@ -24,8 +22,7 @@ RUN npm run build
 # ---- Stage 2: production ----
 FROM node:20-alpine AS production
 
-# Prisma's query engine needs openssl at runtime — same lesson learned in
-# Fase 1's dev Dockerfile, still applies here.
+# Prisma's query engine needs openssl at runtime.
 RUN apk add --no-cache openssl
 
 WORKDIR /app

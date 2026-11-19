@@ -50,12 +50,8 @@ export interface Booking {
   startTime: string;
   endTime: string;
   status: 'PENDING' | 'CONFIRMED' | 'CANCELLED' | 'COMPLETED' | 'NO_SHOW';
-  // Scalar column, returned on every booking response (list and create).
-  // Needed to compute when a PENDING hold expires — see lib/alerts.ts.
   createdAt: string;
-  // Present on GET /bookings (list) since the Fase 12 include; POST
-  // /bookings' 201 response does not include these (create() has no
-  // include) — treat as optional, not guaranteed on every response shape.
+  // Included by GET /bookings but not by the POST /bookings response.
   branch?: { name: string };
   service?: { name: string };
   staff?: { user: { email: string } };

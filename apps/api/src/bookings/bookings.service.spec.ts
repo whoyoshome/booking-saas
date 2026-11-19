@@ -13,8 +13,7 @@ import { RedisService } from '../redis/redis.service';
  * pattern for unit-testing private logic without changing its visibility
  * just to make it testable.
  *
- * This exists specifically as a regression test for the Fase 6/8 bug:
- * Prisma does NOT surface the exclusion constraint violation as P2004 —
+ * Regression test: Prisma does NOT surface the exclusion constraint violation as P2004 —
  * it comes through as PrismaClientUnknownRequestError with the raw
  * driver text (SQLSTATE + constraint name) in .message. A future refactor
  * that reverts to checking err.code would silently break 409 handling

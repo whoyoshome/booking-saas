@@ -12,8 +12,8 @@ export class ServicesService {
     // exact same mechanism as BranchesService.findOne — RLS already scoped
     // this query to the caller's tenant, so a branchId belonging to another
     // tenant is invisible here, not something we compare tenantId against
-    // by hand. One 404 branch for "doesn't exist" and "belongs to someone
-    // else" is intentional (see the Fase 3 note on not leaking existence).
+    // by hand. One 404 for "doesn't exist" and "belongs to someone else" is
+    // intentional: it does not leak whether the resource exists.
     const branch = await this.prisma.client.branch.findFirst({
       where: { id: dto.branchId, deletedAt: null },
     });

@@ -21,10 +21,7 @@ export class CreateServiceDto {
   durationMinutes: number;
 
   // Cleanup/prep time after the service, added to the effective booking
-  // range in Phase 6 (general roadmap) so the exclusion constraint blocks
-  // it automatically. Defaults to 0 — most services don't need it, and an
-  // explicit opt-in is safer than guessing a default that changes booking
-  // behavior silently.
+  // range so the exclusion constraint blocks it too. Defaults to 0.
   @IsOptional()
   @IsInt()
   @Min(0)

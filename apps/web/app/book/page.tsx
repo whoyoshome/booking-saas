@@ -252,11 +252,10 @@ function BookPageContent() {
     setStep('confirm');
   }
 
-  // P0 — go back one step. Lists already fetched (services/staff) stay in
-  // state so going forward again doesn't refetch. Selections that belong
-  // to the step we are leaving ARE cleared, otherwise the summary chips
-  // keep showing e.g. "Corte de cabello" while the user is back on
-  // "elegí un servicio".
+  // Go back one step. Lists already fetched (services/staff) stay in state
+  // so going forward again doesn't refetch. Selections that belong to the
+  // step we are leaving ARE cleared, otherwise the summary chips would keep
+  // showing a service while the user is back on the service picker.
   function goBack() {
     const previous = PREVIOUS_STEP[step];
     if (!previous) return;

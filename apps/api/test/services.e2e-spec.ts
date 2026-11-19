@@ -4,7 +4,7 @@ import request from 'supertest';
 import { AppModule } from '../src/app.module';
 
 /**
- * Fase 4, Step 2 — Services module. Same seed-data coupling documented in
+ * Services module. Same seed-data coupling documented in
  * tenant-isolation.e2e-spec.ts (tenant-a / tenant-b / admin@tenant.dev).
  * Run `npm run seed` before this suite.
  */

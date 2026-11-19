@@ -1,17 +1,17 @@
-# Prompt: agregar un endpoint nuevo
+# Prompt: add an endpoint
 
-Usar cuando se necesita una ruta nueva de NestJS en `apps/api`.
+Use when a new NestJS route is needed in `apps/api`.
 
 ---
 
-Agregar [MÉTODO] `/[path]` en `apps/api/src/[módulo]/`.
+Add [METHOD] `/[path]` in `apps/api/src/[module]/`.
 
-Requisitos:
-- El controller usa `@TenantScoped()` a nivel de clase (ver cualquier controller existente, ej. `branches.controller.ts`, para el patrón). Agregar `@Roles(...)` solo si esta ruta debe restringirse más allá de "cualquier rol autenticado con contexto de tenant".
-- El service consulta vía `this.prisma.client.*`, nunca `this.prisma.*` directo.
-- DTO con decoradores de `class-validator` para el body/query — seguir el estilo de DTO ya usado en ese módulo (o el más parecido).
-- Si esto toca un modelo Prisma nuevo o una tabla nueva: **parar**. No crear migraciones sin confirmar el cambio de schema primero — los modelos de Prisma y las policies de RLS se revisan aparte, no se infieren de un pedido de endpoint.
-- Agregar al menos un test e2e en `apps/api/test/` cubriendo: el camino feliz, y un 404 cross-tenant (pedir el mismo recurso con el token de otro tenant, confirmar 404 no 403 — es la convención establecida del proyecto, ver la bitácora de las Fases 3/4 del README para el porqué).
-- Correr `npm run test:e2e` y confirmar que el suite completo (no solo el test nuevo) sigue en verde antes de reportar terminado.
+Requirements:
+- The controller uses `@TenantScoped()` at class level (see any existing controller, e.g. `branches.controller.ts`). Add `@Roles(...)` only if the route must be narrower than "any authenticated role with a tenant context".
+- The service queries through `this.prisma.client.*`, never `this.prisma.*`.
+- Use a DTO with `class-validator` decorators for the body or query, following the style already used in that module.
+- If this needs a new Prisma model or table: **stop**. Do not create migrations without confirming the schema change first; Prisma models and RLS policies are reviewed separately, not inferred from an endpoint request.
+- Add at least one e2e test in `apps/api/test/` covering the happy path and a cross-tenant 404 (request the same resource with another tenant's token and expect 404, not 403; see `docs/design-decisions.md` for why).
+- Run `npm run test:e2e` and confirm the whole suite, not just the new test, passes before reporting done.
 
-No agregar este endpoint al frontend salvo que se pida explícitamente — un PR solo de backend es un entregable válido acá.
+Do not wire the endpoint into the frontend unless asked; a backend-only PR is a valid deliverable.

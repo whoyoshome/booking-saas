@@ -81,10 +81,8 @@ async function refreshTokens(): Promise<TokenPair | null> {
 
 /**
  * Fetch wrapper that attaches the current access token and transparently
- * retries ONCE with a refreshed token pair on 401 — mirrors the rotation
- * flow the API has had since Fase 2 (Auth): the used refresh token is
- * invalidated server-side the moment it's used, so this can only ever
- * retry once per call, never loop.
+ * retries ONCE with a refreshed token pair on 401. The API rotates refresh
+ * tokens (a used one is invalidated immediately), so a call never loops.
  */
 export async function apiFetch(path: string, init: RequestInit = {}): Promise<Response> {
   const tokens = getStoredTokens();

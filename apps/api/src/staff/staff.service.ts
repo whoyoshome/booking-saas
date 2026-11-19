@@ -26,10 +26,8 @@ export class StaffService {
     const serviceIds = dto.serviceIds ?? [];
     await this.validateServicesBelongToBranch(dto.branchId, serviceIds);
 
-    // Temporary credential, shown exactly once in the response — there is
-    // no invite/magic-link flow yet (Phase 17 of the general roadmap,
-    // Notifications). See the schema.prisma comment on Staff for the full
-    // rationale.
+    // Temporary credential, shown exactly once in the response; there is no
+    // invite/magic-link flow yet.
     const temporaryPassword = randomBytes(9).toString('base64url');
     const passwordHash = await argon2.hash(temporaryPassword, {
       type: argon2.argon2id,
@@ -165,13 +163,9 @@ export class StaffService {
 
   async remove(id: string): Promise<void> {
     await this.findOne(id);
-    // KNOWN GAP, stated plainly: this soft-deletes the Staff profile but
-    // does NOT currently revoke the underlying User's ability to log in —
-    // there is no `isActive`/`suspended` flag on User yet. A "removed"
-    // staff member's account still authenticates successfully; they'd just
-    // no longer appear in staff listings. Flagged for Fase 13 of the
-    // general roadmap (Production hardening), not silently shipped as if
-    // it were already handled.
+    // KNOWN GAP: this soft-deletes the Staff profile but does NOT revoke the
+    // User's ability to log in (User has no `isActive` flag yet). A removed
+    // staff member can still authenticate; they just disappear from listings.
     await this.prisma.client.staff.update({
       where: { id },
       data: { deletedAt: new Date() },

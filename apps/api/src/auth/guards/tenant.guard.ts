@@ -11,7 +11,7 @@ import { AuthenticatedUser } from '../types/jwt-payload.type';
  * Gate, not a data filter. TenantGuard answers a single question: "does
  * this authenticated user have a valid tenant context to be here?" — it
  * does NOT decide which rows the user can see. That responsibility belongs
- * to RLS + `SET LOCAL app.current_tenant_id`, introduced in Steps 4 and 5.
+ * to RLS + `SET LOCAL app.current_tenant_id`.
  *
  * Must run after JwtAuthGuard (depends on request.user already being set).
  *
@@ -20,8 +20,7 @@ import { AuthenticatedUser } from '../types/jwt-payload.type';
  * reject anything if login is working correctly (every non-super-admin
  * user logs in via a tenantSlug and therefore gets a tenantId in their
  * JWT) — this guard exists as a defensive safety net, not as the primary
- * mechanism, the same way RLS in Step 5 backs up the application-level
- * filter instead of replacing it.
+ * mechanism.
  */
 @Injectable()
 export class TenantGuard implements CanActivate {

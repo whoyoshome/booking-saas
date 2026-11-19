@@ -21,8 +21,7 @@ async function seedSuperAdmin(tx: Prisma.TransactionClient) {
 
   // NOTE — global lookup: SUPER_ADMIN has tenantId: null, so the composite
   // unique (tenantId, email) can't be used as a findUnique shortcut here in
-  // the same way the tenant admins below can. findFirst mirrors the same
-  // temporary lookup used in AuthService.login (see Step 2 of this phase).
+  // the same way the tenant admins below can.
   const existing = await tx.user.findFirst({ where: { email } });
   if (existing) {
     console.log(`Super admin already exists (${email}), skipping.`);
@@ -99,7 +98,7 @@ async function seedTenantWithAdmin(
 }
 
 async function main() {
-  // Step 5: `users` has FORCE ROW LEVEL SECURITY enabled. This script
+  // `users` has FORCE ROW LEVEL SECURITY enabled. This script
   // connects via DATABASE_URL, which points to booking_app (non-superuser,
   // subject to RLS — see .env.example and docker/postgres/init.sql), not
   // booking_admin. So this bypass is NOT redundant: without it, every
@@ -121,7 +120,7 @@ async function main() {
 
     // Two tenants with the same admin email pattern is intentional: it's
     // the scenario that actually exercises the composite unique constraint
-    // (tenantId, email) and, in Step 7 of this phase, the isolation tests.
+    // (tenantId, email) and the tenant isolation e2e tests.
     await seedTenantWithAdmin(tx, {
       slug: 'tenant-a',
       name: 'Tenant A (Demo Clínica)',

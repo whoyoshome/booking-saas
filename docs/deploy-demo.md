@@ -1,96 +1,68 @@
-# Track 11-B — Demo live (gratis) para portfolio
+# Hosted demo deployment
 
-Objetivo: un reclutador abre un link, inicia sesión y hace una reserva.
-**No es AWS.** Es un stack managed free equivalente en función.
+Runbook for the public demo. It uses managed free tiers that are functionally equivalent to the [AWS target](aws-target.md), with the same database roles, migrations and RLS. It is not AWS.
 
-| Pieza | Servicio free | Cómo se usa aquí |
-|-------|---------------|------------------|
-| Frontend | **Vercel** | Proyecto Next.js; Root Directory = `apps/web` |
-| API | **Render** (o Fly.io) | Dockerfile = `apps/api/Dockerfile.prod` |
-| Postgres | **Neon** | Mismos roles/`init.sql` + `prisma migrate deploy` |
-| Redis | **Upstash** | `REDIS_URL` con TLS (`rediss://…`) |
+| Component | Service | Configuration |
+|-----------|---------|---------------|
+| Frontend | Vercel | Next.js project, root directory `apps/web` |
+| API | Render | `apps/api/Dockerfile.prod` |
+| PostgreSQL | Neon | Same roles as `init.sql`, then `prisma migrate deploy` |
+| Redis | Upstash | TLS URL (`rediss://…`) |
 
-## Orden recomendado
+## 1. Neon (PostgreSQL)
 
-### 1. Neon (Postgres)
-
-1. Crear proyecto Postgres.
-2. Crear rol runtime no-superuser (equivalente a `booking_app`) y aplicar la lógica de `docker/postgres/init.sql` (extensión `btree_gist`, grants, `ALTER DEFAULT PRIVILEGES`) con el usuario admin de Neon.
-3. Connection strings:
-   - Admin/migrate → `DATABASE_MIGRATE_URL`
-   - App runtime → `DATABASE_URL` (rol sujeto a RLS)
-4. Desde una máquina con el repo (o un one-off job):
+1. Create a Postgres project.
+2. With the Neon admin user, apply the logic of `docker/postgres/init.sql`: a non-superuser runtime role equivalent to `booking_app`, the `btree_gist` extension, grants and `ALTER DEFAULT PRIVILEGES`.
+3. Keep two connection strings:
+   - admin, for migrations: `DATABASE_MIGRATE_URL`;
+   - runtime role, subject to RLS: `DATABASE_URL`.
+4. Run the migrations and seeds from a machine with the repository:
 
 ```bash
 cd apps/api
 DATABASE_URL="$DATABASE_MIGRATE_URL" npx prisma migrate deploy
-DATABASE_URL="$DATABASE_URL" npm run seed
+npm run seed        # uses DATABASE_URL (runtime role)
+npm run seed:demo   # demo branches, services and staff; hosted demo only
 ```
 
-Validar que RLS sigue activo (los e2e locales ya lo prueban; en Neon conviene un smoke login + booking entre dos tenants).
+Then smoke-test a login and a booking in each of the two tenants.
 
-### 2. Upstash (Redis)
+## 2. Upstash (Redis)
 
-1. Crear base Redis.
-2. Copiar la URL TLS a `REDIS_URL` (suele ser `rediss://…`).
+Create a Redis database and set its TLS URL as `REDIS_URL`.
 
-### 3. Render (API)
+## 3. Render (API)
 
-1. New → Web Service → conectar el repo GitHub.
-2. **Root Directory:** `apps/api` (o Dockerfile path relativo al repo).
-3. **Dockerfile path:** `Dockerfile.prod` (si root = `apps/api`) o `apps/api/Dockerfile.prod`.
-4. Health check path: `/health`.
-5. Env vars mínimas:
+1. Create a Web Service from the GitHub repository.
+2. Set the root directory to `apps/api` and the Dockerfile path to `Dockerfile.prod`.
+3. Set the health check path to `/health`.
+4. Set the environment variables:
 
 ```
 NODE_ENV=production
 PORT=3001
-DATABASE_URL=…          # booking_app / RLS
-REDIS_URL=…             # Upstash
+DATABASE_URL=…            # runtime role, subject to RLS
+REDIS_URL=…               # Upstash
 JWT_SECRET=…
 JWT_REFRESH_SECRET=…
 JWT_ACCESS_EXPIRES_IN=15m
 JWT_REFRESH_EXPIRES_IN=7d
-CORS_ORIGIN=https://<tu-app>.vercel.app
-SEED_SUPER_ADMIN_EMAIL=…   # solo si corres seed en este entorno
-SEED_SUPER_ADMIN_PASSWORD=…
+CORS_ORIGIN=https://<app>.vercel.app
+OPENAI_API_KEY=…          # optional; without it POST /ai/assist returns 503
 ```
 
-**Nota Render free:** el servicio puede “dormir”; el primer request tarda. Documentarlo en el README del portfolio.
+Migrations never run inside the runtime container. Run them once, as shown above, before the first traffic.
 
-Migraciones: **no** van dentro del contenedor de runtime. Correrlas una vez (CLI local o job one-off) con `DATABASE_MIGRATE_URL` antes del primer tráfico.
+The free tier spins the service down when idle, so the first request after a pause takes 30–50 seconds.
 
-### 4. Vercel (Web)
+## 4. Vercel (frontend)
 
-1. Importar el mismo repo.
-2. **Root Directory:** `apps/web`.
-3. Framework: Next.js (Vercel no necesita `Dockerfile.prod`; el Docker es para Render/ECS).
-4. Env:
+1. Import the same repository with root directory `apps/web`. Vercel builds Next.js natively; `Dockerfile.prod` is only for container platforms.
+2. Set `NEXT_PUBLIC_API_URL=https://<api>.onrender.com`. The value is fixed at build time, so redeploy the frontend whenever the API URL changes.
+3. After the first deploy, set `CORS_ORIGIN` on Render to the Vercel URL, without a trailing slash, and restart the API.
 
-```
-NEXT_PUBLIC_API_URL=https://<tu-api>.onrender.com
-```
+## Verification
 
-`NEXT_PUBLIC_*` se fija en **build**; si cambia la URL de la API, hay que **redeploy** el frontend.
-
-5. Tras el deploy, actualizar `CORS_ORIGIN` en Render con la URL real de Vercel y reiniciar la API.
-
-## Checklist demo
-
-- [ ] `GET https://<api>/health` → 200
-- [ ] Login con usuario seed / tenant demo
-- [ ] Flujo reserva visible en UI
-- [ ] README del repo con ambos links + nota “demo free ≠ AWS”
-- [ ] Credenciales demo (o instrucciones) para el reclutador
-
-## Honestidad (texto sugerido para el README raíz)
-
-```markdown
-## Live demo (portfolio)
-
-- Web: https://….vercel.app
-- API: https://….onrender.com/health
-
-Stack: Vercel + Render + Neon + Upstash (free tiers).
-Target production: AWS Fargate + RDS + ElastiCache — see docs/aws-target.md (not deployed; no AWS account yet).
-```
+- `GET https://<api>/health` returns `200`.
+- Login works for `tenant-a`, `tenant-b` and the super admin.
+- A full booking (branch → service → staff → slot) returns `201` in the UI.

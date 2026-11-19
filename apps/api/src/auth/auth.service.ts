@@ -22,22 +22,13 @@ interface TokenPair {
  * table with multiple sessions per device. Explicit consequence: if the user
  * logs in from a second device, the first is invalidated on its next refresh.
  *
- * This is a deliberate MVP simplification, not an oversight — modeling
- * multi-session (separate table, one hash per device/session, individual
- * revocation) is the natural evolution when that becomes a real product
- * requirement ("I want to be logged in on my phone and laptop at the same
- * time"). Adding it now without that requirement would be exactly the kind
- * of over-engineering we want to avoid.
+ * A deliberate simplification: multi-session support (one hash per device,
+ * individual revocation) belongs in a separate table once it is needed.
  *
- * DESIGN — RLS bypass, Step 5: `users` now has FORCE ROW LEVEL SECURITY
- * enabled. AuthService is the one place in the codebase allowed to bypass
- * it unconditionally, via withSystemContext() below. This is not a
- * loophole: by definition, resolving *who* the caller is (which user,
- * which tenant, if any) has to happen before any tenant context exists to
- * scope a query by — the same reasoning that put `app.is_super_admin` in
- * the design from Step 4. Every other repository, once RLS-protected
- * tables outside `users` exist, must go through PrismaService.client
- * (Step 4) instead, never this bypass.
+ * DESIGN — RLS bypass: `users` has FORCE ROW LEVEL SECURITY. AuthService is
+ * the only place allowed to bypass it, via withSystemContext() below,
+ * because resolving who the caller is must happen before any tenant context
+ * exists. Every other repository goes through PrismaService.client.
  */
 @Injectable()
 export class AuthService {
@@ -51,10 +42,8 @@ export class AuthService {
 
   /**
    * Runs `fn` inside a transaction with app.is_super_admin = true set for
-   * its duration, so queries against `users` (FORCE RLS-protected as of
-   * Step 5) are not blocked. Used exclusively by AuthService — see the
-   * class-level DESIGN note above for why this bypass exists here and
-   * nowhere else.
+   * its duration, so queries against the RLS-protected `users` table are not
+   * blocked. See the class-level DESIGN note.
    */
   private async withSystemContext<T>(
     fn: (tx: Prisma.TransactionClient) => Promise<T>,

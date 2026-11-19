@@ -23,7 +23,7 @@ Instructions for AI coding agents (Claude Code, Cursor, Copilot, etc.) working i
 
 ## Before starting a task
 
-1. Read the relevant section of `docs/engineering-log.md` for the reasoning behind the current design.
+1. Read the relevant section of `docs/design-decisions.md` for the reasoning behind the current design.
 2. Check `docs/prompts/` for a template that matches the task.
 3. If it is unclear whether a change counts as new scope, stop and ask.
 

@@ -1,5 +1,4 @@
-# DEVELOPMENT Dockerfile. The production image (multi-stage, compiled build,
-# without devDependencies) will be defined in Phase 10 (AWS/CI-CD).
+# Development image. The production image is Dockerfile.prod.
 FROM node:20-alpine
 
 # Prisma's query engine requires openssl at runtime; without it, Alpine fails

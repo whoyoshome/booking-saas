@@ -5,20 +5,13 @@ import { AppModule } from '../src/app.module';
 import { PrismaService } from '../src/prisma/prisma.service';
 
 /**
- * Fase 3, Paso 7 — tenant isolation integration tests. This is the formal
- * close-out of the whole phase: everything from Steps 1-5 (Tenant model,
- * tenantSlug login, TenantGuard, TenantContextInterceptor, RLS policy) is
- * exercised together here, both through the HTTP layer and by talking to
- * PostgreSQL directly.
+ * Tenant isolation integration tests: tenantSlug login, TenantGuard,
+ * TenantContextInterceptor and the RLS policies, exercised through the HTTP
+ * layer and directly against PostgreSQL.
  *
- * KNOWN COUPLING, stated explicitly: these tests rely on the seed data
- * from `prisma/seed.ts` (tenant-a / tenant-b / admin@tenant.dev /
- * ChangeMe123!, plus the SUPER_ADMIN) instead of creating their own
- * throwaway fixtures. Run `npm run seed` before this suite. Building
- * proper test fixtures with setup/teardown per test file is the more
- * correct long-term approach, but is not worth the extra infrastructure
- * yet for a project at this stage — noted here so it isn't mistaken for
- * an oversight later.
+ * KNOWN COUPLING: these tests rely on the seed data from `prisma/seed.ts`
+ * (tenant-a / tenant-b / admin@tenant.dev, plus the SUPER_ADMIN) instead of
+ * per-suite fixtures. Run `npm run seed` before this suite.
  */
 describe('Tenant isolation (e2e)', () => {
   let app: INestApplication;
@@ -191,7 +184,7 @@ describe('Tenant isolation (e2e)', () => {
     });
   });
 
-  describe('Cross-tenant resource access — branches (Phase 4, Step 1)', () => {
+  describe('Cross-tenant resource access — branches', () => {
     let branchIdOfTenantA: string;
 
     beforeAll(async () => {
@@ -210,7 +203,7 @@ describe('Tenant isolation (e2e)', () => {
         .expect(200);
     });
 
-    it("tenant B gets 404, never 403, requesting tenant A's branch by id — the exact rule from the Phase 0 Technical Plan", async () => {
+    it("tenant B gets 404, never 403, requesting tenant A's branch by id", async () => {
       await request(app.getHttpServer())
         .get(`/branches/${branchIdOfTenantA}`)
         .set('Authorization', `Bearer ${tenantBToken}`)

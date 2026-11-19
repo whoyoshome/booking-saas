@@ -38,8 +38,7 @@ export class PrismaService
    * set_config), or falls back to the plain client when there's no active
    * request context (seed scripts, unauthenticated routes, app bootstrap).
    *
-   * From Step 5 onward, any repository touching an RLS-protected table
-   * MUST query through `this.prisma.client.xxx`, never `this.prisma.xxx`
+   * Any repository touching an RLS-protected table MUST query through `this.prisma.client.xxx`, never `this.prisma.xxx`
    * directly — the latter bypasses the tenant session variable entirely,
    * and depending on how the RLS policy is written, would see either every
    * tenant's rows or none at all.

@@ -186,9 +186,8 @@ describe('Availability (e2e)', () => {
       .expect(400);
   });
 
-  it('defense in depth: rejects when staff was later moved to a different branch than the (still-qualified) service — the Fase 4 known gap', async () => {
-    // Reproduces exactly the scenario the Fase 4 bitácora flagged as a
-    // known gap: StaffService rows are validated against the staff's
+  it('defense in depth: rejects when staff was later moved to a different branch than the (still-qualified) service', async () => {
+    // StaffService rows are validated against the staff's
     // branch only AT ASSIGNMENT TIME. Moving staff to a different branch
     // afterward does not retroactively invalidate that qualification.
     const otherBranchRes = await request(app.getHttpServer())

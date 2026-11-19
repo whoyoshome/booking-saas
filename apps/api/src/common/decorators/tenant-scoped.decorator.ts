@@ -14,12 +14,6 @@ import { TenantContextInterceptor } from '../../prisma/tenant-context.intercepto
  *     -> TenantContextInterceptor (open the RLS-scoped transaction for
  *        everything downstream: the handler, the service, the repository)
  *
- * We deliberately held off creating this until now (see the Step 4 notes
- * in the Fase 3 bitácora in README.md) — with a single demo route, writing
- * the four pieces out explicitly was clearer than a decorator hiding them.
- * Now that a second real controller (BranchesController) needs the exact
- * same stack, the repetition earns the abstraction.
- *
  * Usage:
  *   @Controller('branches')
  *   @TenantScoped()

@@ -47,15 +47,14 @@ interface TimeBlock {
  *      StaffService row exists) — 400 if not.
  *   3. Defense in depth: confirm staff.branchId === service.branchId (a
  *      staff member moved to a different branch after being qualified for
- *      a service could otherwise slip through — see Fase 4's known gap).
+ *      a service could otherwise slip through).
  *   4. Resolve the staff's working blocks for the date: an exception
  *      REPLACES the recurring StaffSchedule for that date; otherwise fall
  *      back to StaffSchedule rows for that day of week.
  *   5. Resolve the branch's OPEN blocks for the date the same way, via
  *      BranchSchedule/BranchScheduleException — UNLESS the branch has
  *      never configured any BranchSchedule at all, in which case branch
- *      hours are treated as unrestricted (opt-in, see Fase 5 Step 3
- *      design notes in README.md for why).
+ *      hours are treated as unrestricted (branch hours are opt-in).
  *   6. Intersect the staff blocks against the branch blocks — a slot only
  *      exists where BOTH the staff is scheduled AND the branch is open.
  *   7. Resolve each intersected block against branch.timezone for the
@@ -106,8 +105,7 @@ export class AvailabilityService {
     // Defense in depth: StaffService rows are only created when the
     // service belongs to the staff member's branch AT THAT TIME, but a
     // staff member can be moved to a different branch afterward without
-    // old StaffService rows being invalidated — a known gap documented in
-    // the Fase 4 bitácora. Re-checked here, at read time.
+    // old StaffService rows being invalidated. Re-checked here, at read time.
     if (staff.branchId !== service.branchId) {
       throw new BadRequestException(
         "This service does not belong to the staff member's current branch.",
@@ -144,8 +142,7 @@ export class AvailabilityService {
 
     let effectiveBlocks: TimeBlock[];
     if (branchResolution === 'unrestricted') {
-      // Branch never configured any BranchSchedule — opt-in design, see
-      // README.md Fase 5 Step 3 notes. No restriction applied.
+      // Branch never configured any BranchSchedule (opt-in): no restriction.
       effectiveBlocks = staffBlocks;
     } else if (branchResolution === 'closed') {
       effectiveBlocks = [];

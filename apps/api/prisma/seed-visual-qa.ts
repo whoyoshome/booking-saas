@@ -82,8 +82,8 @@ async function main() {
         where: { tenantId: tenant.id },
       });
       console.log(
-        `Visual QA tenant-a: ${branchCount} sucursales, ${bookingCount} reservas. ` +
-          `Cerrar sesión en el browser y entrar de nuevo como tenant-a.`,
+        `Visual QA tenant-a: ${branchCount} branches, ${bookingCount} bookings. ` +
+          `Log out in the browser and sign in again as tenant-a.`,
       );
     },
     { timeout: 30_000 },

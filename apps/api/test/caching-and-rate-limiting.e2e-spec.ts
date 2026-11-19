@@ -17,7 +17,7 @@ async function bootApp(): Promise<INestApplication> {
   return app;
 }
 
-describe('Fase 8: Redis cache invalidation (e2e)', () => {
+describe('Redis cache invalidation (e2e)', () => {
   let app: INestApplication;
   let tenantAToken: string;
 
@@ -111,7 +111,7 @@ describe('Fase 8: Redis cache invalidation (e2e)', () => {
   });
 });
 
-describe('Fase 8: login rate limiting (e2e)', () => {
+describe('Login rate limiting (e2e)', () => {
   let app: INestApplication;
 
   // Deliberately its own app instance with NO login in beforeAll — the

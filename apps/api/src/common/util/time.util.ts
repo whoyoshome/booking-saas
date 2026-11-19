@@ -42,10 +42,7 @@ export function rangesOverlap(
 
 /**
  * Returns the overlapping sub-range of two [start, end) time-of-day
- * ranges, or null if they don't overlap at all. GAP FIX (Fase 9/10): this
- * was missing from this module entirely — AvailabilityService had its own
- * private, duplicate implementation (intersectBlocks) instead of using a
- * shared, independently-unit-tested function. Now it delegates here.
+ * ranges, or null if they don't overlap at all.
  */
 export function intersectTimeRanges(
   aStart: Date,

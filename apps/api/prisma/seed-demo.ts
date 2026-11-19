@@ -14,7 +14,7 @@ const DEMO_PASSWORD = 'ChangeMe123!';
  * demo data to seed.ts would probably be safe, but "probably" isn't good
  * enough for something CI depends on — a dedicated script removes the
  * risk entirely. Never wired into CI or docker-compose; run by hand,
- * once, against Neon, for the public demo only (Fase 11, Track 11-B).
+ * once, against Neon, for the public demo only.
  *
  * Same RLS bypass pattern as seed.ts: `users`, `branches`, `services`,
  * `staff`, `staff_services`, and `staff_schedules` all have
@@ -34,12 +34,9 @@ interface DemoTenantSpec {
   staffEmail: string;
 }
 
-// Two different business flavors and two different real IANA timezones —
-// not just for narrative variety. Different timezones per tenant is also
-// the most visible way a recruiter clicking through the demo can see the
-// Fase 5 timezone-correct availability math actually working (a Bogotá
-// slot and a Mexico City slot for the "same" local hour resolve to
-// different UTC instants), not just trust that it's implemented.
+// Two real IANA timezones so the demo shows timezone-correct availability:
+// a Bogota slot and a Mexico City slot for the same local hour resolve to
+// different UTC instants.
 const DEMO_TENANTS: DemoTenantSpec[] = [
   {
     slug: 'tenant-a',

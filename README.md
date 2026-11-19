@@ -176,5 +176,5 @@ docs/       Design notes (optional reading)
 
 Production Dockerfiles: `apps/api/Dockerfile.prod`, `apps/web/Dockerfile.prod`.  
 Intended AWS layout (not deployed): [docs/aws-target.md](docs/aws-target.md).  
-Phase checklists and engineering notes: [docs/engineering-log.md](docs/engineering-log.md).  
+Design decisions and known limitations: [docs/design-decisions.md](docs/design-decisions.md).  
 Hosted demo runbook: [docs/deploy-demo.md](docs/deploy-demo.md).
