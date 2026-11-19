@@ -1,5 +1,6 @@
 import { expect, type APIRequestContext, type Page } from '@playwright/test';
 import type { AvailabilityResponse } from '../../lib/types';
+import { formatTime } from '../../lib/format-date';
 import { demoBranchId } from './api';
 
 function isWeekend(d: Date): boolean {
@@ -18,6 +19,11 @@ function toDateInput(d: Date): string {
   return [d.getFullYear(), d.getMonth() + 1, d.getDate()]
     .map((n) => String(n).padStart(2, '0'))
     .join('-');
+}
+
+/** A slot button's label: its start time at the branch, e.g. "9:00 AM". */
+export function slotLabel(availability: AvailabilityResponse, index: number): string {
+  return formatTime(availability.slots[index].startUtc, availability.timezone);
 }
 
 /** Opens /book through the dashboard's deep link, landing on "Service". */
@@ -47,7 +53,7 @@ export async function pickDateWithSlots(page: Page, daysAhead: number): Promise<
 
     if (availability.slots.length > 0) {
       await expect(
-        page.getByRole('button', { name: availability.slots[0].startLocal, exact: true }),
+        page.getByRole('button', { name: slotLabel(availability, 0), exact: true }),
       ).toBeVisible();
       return availability;
     }

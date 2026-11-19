@@ -10,6 +10,7 @@ import { AiAssistPlaceholder } from '../../components/AiAssistFrame';
 import { usePagedList } from '../../components/use-paged-list';
 import { STATUS_BADGE, STATUS_ICON, STATUS_LABEL, STATUS_ROW } from '../../components/status-style';
 import type { Branch, Booking } from '../../lib/types';
+import { formatDateTime } from '../../lib/format-date';
 
 // Only TENANT_ADMIN/STAFF ever render the assistant, so it's split into
 // its own chunk: a CLIENT never downloads it, and admin/staff fetch it
@@ -291,7 +292,7 @@ export default function DashboardPage() {
                     {canOperate && b.client?.email && (
                       <p className="text-ink-600">Client: {b.client.email}</p>
                     )}
-                    <p className="text-ink-600">{new Date(b.startTime).toLocaleString()}</p>
+                    <p className="text-ink-600">{formatDateTime(b.startTime)}</p>
                   </div>
 
                   <div className="flex shrink-0 flex-col items-start gap-1.5 sm:items-end">

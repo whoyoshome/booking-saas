@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { getPriority, minutesUntilExpiry } from '../../lib/alerts';
 import { describeExpiry, describeStart, minutesFromNow } from '../../lib/format-time';
+import { formatDateTime } from '../../lib/format-date';
 import type { Booking } from '../../lib/types';
 import { PriorityBadge } from './PriorityBadge';
 import { PRIORITY_ROW } from './priority-style';
@@ -12,13 +13,6 @@ interface AlertRowProps {
   /** Link PENDING rows to the dashboard, where they can be accepted/rejected. */
   showManageLink?: boolean;
 }
-
-const START_FORMAT: Intl.DateTimeFormatOptions = {
-  day: 'numeric',
-  month: 'short',
-  hour: '2-digit',
-  minute: '2-digit',
-};
 
 export function AlertRow({ booking, now, showManageLink = false }: AlertRowProps) {
   const priority = getPriority(booking, now);
@@ -46,9 +40,7 @@ export function AlertRow({ booking, now, showManageLink = false }: AlertRowProps
           {booking.branch?.name ?? booking.branchId} · {booking.staff?.user.email ?? booking.staffId}
         </p>
         {booking.client?.email && <p className="text-ink-600">Client: {booking.client.email}</p>}
-        <p className="text-ink-600">
-          {new Date(booking.startTime).toLocaleString('es', START_FORMAT)}
-        </p>
+        <p className="text-ink-600">{formatDateTime(booking.startTime)}</p>
       </div>
 
       <div className="flex shrink-0 flex-col items-start gap-1 sm:items-end">

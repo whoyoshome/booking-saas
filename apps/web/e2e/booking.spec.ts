@@ -1,7 +1,8 @@
 import { test, expect } from '@playwright/test';
 import { API_URL } from './support/urls';
 import { AUTH_FILE, accessTokenOf } from './support/session';
-import { openSlotStep } from './support/booking-wizard';
+import { openSlotStep, slotLabel } from './support/booking-wizard';
+import { formatTimeRange } from '../lib/format-date';
 
 test.use({ storageState: AUTH_FILE.client });
 
@@ -9,8 +10,10 @@ test('a client books a free slot and gets a PENDING booking', async ({ page, req
   const availability = await openSlotStep(page, request, 14);
   const slot = availability.slots[0];
 
-  await page.getByRole('button', { name: slot.startLocal, exact: true }).click();
-  await expect(page.getByText(`Time: ${slot.startLocal} - ${slot.endLocal}`)).toBeVisible();
+  await page.getByRole('button', { name: slotLabel(availability, 0), exact: true }).click();
+  await expect(
+    page.getByText(`Time: ${formatTimeRange(slot.startUtc, slot.endUtc, availability.timezone)}`),
+  ).toBeVisible();
 
   const created = page.waitForResponse((r) => r.url() === `${API_URL}/bookings` && r.request().method() === 'POST');
   await page.getByRole('button', { name: 'Confirm booking' }).click();
@@ -24,7 +27,7 @@ test('if someone else takes the slot first, the API answers 409 and the UI recov
   const availability = await openSlotStep(page, request, 21);
   const slot = availability.slots[0];
 
-  await page.getByRole('button', { name: slot.startLocal, exact: true }).click();
+  await page.getByRole('button', { name: slotLabel(availability, 0), exact: true }).click();
   await expect(page.getByRole('button', { name: 'Confirm booking' })).toBeVisible();
 
   // The race, made deterministic: while the client is looking at the
@@ -51,5 +54,5 @@ test('if someone else takes the slot first, the API answers 409 and the UI recov
   // slot is gone from the refreshed availability.
   await expect(page.getByText('Someone else just took that time')).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Time' })).toBeVisible();
-  await expect(page.getByRole('button', { name: slot.startLocal, exact: true })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: slotLabel(availability, 0), exact: true })).toHaveCount(0);
 });

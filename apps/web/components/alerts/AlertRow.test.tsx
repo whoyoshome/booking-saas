@@ -95,6 +95,8 @@ describe('AlertRow — content and links', () => {
     expect(row).toHaveTextContent('Downtown Branch');
     expect(row).toHaveTextContent('ana@tenant-a.dev');
     expect(row).toHaveTextContent('Client: cliente@example.com');
+    // Start time in the shared en-US format, e.g. "Thu, Oct 1 · 8:00 AM".
+    expect(row).toHaveTextContent(/[A-Z][a-z]{2}, [A-Z][a-z]{2} \d{1,2} · \d{1,2}:\d{2} [AP]M/);
   });
 
   it('falls back to the ids when the relations are missing (e.g. a POST response)', () => {

@@ -2,7 +2,7 @@ import { test, expect, type Locator, type Page } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
 import { AUTH_FILE } from './support/session';
 import { createPendingBooking } from './support/api';
-import { openServiceStep, pickDateWithSlots } from './support/booking-wizard';
+import { openServiceStep, pickDateWithSlots, slotLabel } from './support/booking-wizard';
 
 /**
  * axe-core against WCAG 2.0/2.1 A + AA, on every main screen and on each
@@ -134,7 +134,7 @@ test.describe('client', () => {
     await todaysGrid;
     await expect(page.getByRole('heading', { name: 'Time' })).toBeFocused();
 
-    const { slots } = await pickDateWithSlots(page, 42);
+    const availability = await pickDateWithSlots(page, 42);
     await expectNoAxeViolations(page);
 
     // Tab walks the native date input's own segments (month/day/year in
@@ -144,7 +144,7 @@ test.describe('client', () => {
     for (let i = 0; i < 5 && (await dateInput.evaluate((el) => el === document.activeElement)); i++) {
       await page.keyboard.press('Tab');
     }
-    await expectVisibleFocus(page.getByRole('button', { name: slots[0].startLocal, exact: true }));
+    await expectVisibleFocus(page.getByRole('button', { name: slotLabel(availability, 0), exact: true }));
     await page.keyboard.press('Enter');
 
     await expect(page.getByRole('heading', { name: 'Confirm' })).toBeFocused();

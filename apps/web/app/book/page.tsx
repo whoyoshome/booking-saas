@@ -7,6 +7,7 @@ import { useAuth } from '../../lib/auth-context';
 import { apiFetch } from '../../lib/api-client';
 import { Header } from '../../components/Header';
 import { STATUS_LABEL } from '../../components/status-style';
+import { formatDate, formatTime, formatTimeRange } from '../../lib/format-date';
 import type {
   Branch,
   Service,
@@ -494,7 +495,7 @@ function BookPageContent() {
                     onClick={() => chooseSlot(slot)}
                     className="rounded border border-line bg-surface px-3 py-2 text-sm font-medium text-ink transition-colors hover:border-pine hover:bg-pine-bg"
                   >
-                    {slot.startLocal}
+                    {formatTime(slot.startUtc, availability.timezone)}
                   </button>
                 ))}
               </div>
@@ -519,11 +520,12 @@ function BookPageContent() {
               <span className="text-ink-600">With:</span> {selectedStaff?.user.email}
             </p>
             <p>
-              <span className="text-ink-600">Date:</span> {date}
+              <span className="text-ink-600">Date:</span>{' '}
+              {formatDate(selectedSlot.startUtc, selectedBranch?.timezone)}
             </p>
             <p>
-              <span className="text-ink-600">Time:</span> {selectedSlot.startLocal} -{' '}
-              {selectedSlot.endLocal}
+              <span className="text-ink-600">Time:</span>{' '}
+              {formatTimeRange(selectedSlot.startUtc, selectedSlot.endUtc, selectedBranch?.timezone)}
             </p>
           </div>
           <button
