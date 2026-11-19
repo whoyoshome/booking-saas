@@ -153,9 +153,16 @@ export class AvailabilityService {
     const slotMinutes = service.durationMinutes + service.bufferMinutes;
     const zone = staff.branch.timezone;
 
-    const candidateSlots = effectiveBlocks.flatMap((block) =>
-      this.sliceBlockIntoSlots(query.date, block.startTime, block.endTime, zone, slotMinutes),
-    );
+    // A slot that has already started can't be booked, so it is never
+    // offered (BookingsService.create also rejects a past startTime before
+    // getting here). Computed on every call: the cache below holds existing
+    // bookings, not slots, so it stays valid as time passes.
+    const now = Date.now();
+    const candidateSlots = effectiveBlocks
+      .flatMap((block) =>
+        this.sliceBlockIntoSlots(query.date, block.startTime, block.endTime, zone, slotMinutes),
+      )
+      .filter((slot) => Date.parse(slot.startUtc) > now);
 
     // FIX — subtract existing PENDING/CONFIRMED bookings for this staff
     // member. Until now this endpoint only reflected the SCHEDULE

@@ -5,8 +5,9 @@ import * as argon2 from 'argon2';
 import { Role } from '@prisma/client';
 import { AppModule } from '../src/app.module';
 import { PrismaService } from '../src/prisma/prisma.service';
+import { futureMonday, utcDate, utcIsoDayOfWeek } from './support/dates';
 
-const MONDAY = '2026-09-14';
+const MONDAY = futureMonday();
 
 /**
  * Staff schedule: 09:00-17:00. Service: duration 30 + buffer 10 = 40 min
@@ -24,6 +25,7 @@ describe('Bookings (e2e)', () => {
   let tenantAToken: string;
   let staffId: string;
   let serviceId: string;
+  let branchId: string;
 
   beforeAll(async () => {
     moduleRef = await Test.createTestingModule({
@@ -47,6 +49,7 @@ describe('Bookings (e2e)', () => {
       .set('Authorization', `Bearer ${tenantAToken}`)
       .send({ name: 'Sucursal Bookings e2e' })
       .expect(201);
+    branchId = branchRes.body.id;
 
     const staffRes = await request(app.getHttpServer())
       .post('/staff')
@@ -297,5 +300,57 @@ describe('Bookings (e2e)', () => {
     expect(clientAView.body.some((b: { clientId: string }) => b.clientId === clientB.id)).toBe(
       false,
     );
+  });
+
+  describe('slots that have already started', () => {
+    // A staff member who works all of today (UTC branch), so today's grid
+    // always has slots in the past (00:00 has always started) and, for most
+    // of the day, slots in the future too.
+    const today = utcDate();
+    let allDayStaffId: string;
+
+    beforeAll(async () => {
+      const staffRes = await request(app.getHttpServer())
+        .post('/staff')
+        .set('Authorization', `Bearer ${tenantAToken}`)
+        .send({ email: `booking-allday-${Date.now()}@tenant-a.dev`, branchId })
+        .expect(201);
+      allDayStaffId = staffRes.body.id;
+
+      await request(app.getHttpServer())
+        .patch(`/staff/${allDayStaffId}`)
+        .set('Authorization', `Bearer ${tenantAToken}`)
+        .send({ serviceIds: [serviceId] })
+        .expect(200);
+
+      await request(app.getHttpServer())
+        .post('/staff-schedules')
+        .set('Authorization', `Bearer ${tenantAToken}`)
+        .send({ staffId: allDayStaffId, dayOfWeek: utcIsoDayOfWeek(), startTime: '00:00', endTime: '23:59' })
+        .expect(201);
+    });
+
+    it('GET /availability never offers a slot that has already started', async () => {
+      const requestedAt = Date.now();
+      const res = await request(app.getHttpServer())
+        .get(`/availability?staffId=${allDayStaffId}&serviceId=${serviceId}&date=${today}`)
+        .set('Authorization', `Bearer ${tenantAToken}`)
+        .expect(200);
+
+      const starts: string[] = res.body.slots.map((s: { startUtc: string }) => s.startUtc);
+      expect(starts).not.toContain(`${today}T00:00:00.000Z`);
+      expect(starts.every((start) => Date.parse(start) > requestedAt)).toBe(true);
+    });
+
+    it('POST /bookings rejects a startTime that has already passed with 400, even on the schedule grid', async () => {
+      // 00:00 today is a real grid slot for this staff member, just not a future one.
+      const res = await request(app.getHttpServer())
+        .post('/bookings')
+        .set('Authorization', `Bearer ${tenantAToken}`)
+        .send({ staffId: allDayStaffId, serviceId, startTime: `${today}T00:00:00.000Z` })
+        .expect(400);
+
+      expect(res.body.message).toBe('startTime is in the past. Only upcoming slots can be booked.');
+    });
   });
 });

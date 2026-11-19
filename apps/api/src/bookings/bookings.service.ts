@@ -31,6 +31,18 @@ export class BookingsService {
 
     const clientId = user.role === Role.CLIENT ? user.id : dto.clientId ?? user.id;
 
+    // Checked before any database work: a malformed or past startTime is a
+    // bad request no matter which staff, service or slot it names.
+    const startTime = new Date(dto.startTime);
+    if (Number.isNaN(startTime.getTime())) {
+      throw new BadRequestException('startTime must be a valid ISO-8601 datetime.');
+    }
+    if (startTime.getTime() <= Date.now()) {
+      throw new BadRequestException(
+        'startTime is in the past. Only upcoming slots can be booked.',
+      );
+    }
+
     const staff = await this.prisma.client.staff.findFirst({
       where: { id: dto.staffId, deletedAt: null },
       include: { branch: true },
@@ -59,11 +71,6 @@ export class BookingsService {
       throw new BadRequestException(
         'This staff member is not qualified to perform this service.',
       );
-    }
-
-    const startTime = new Date(dto.startTime);
-    if (Number.isNaN(startTime.getTime())) {
-      throw new BadRequestException('startTime must be a valid ISO-8601 datetime.');
     }
 
     // Validates the requested slot against the SCHEDULE grid only

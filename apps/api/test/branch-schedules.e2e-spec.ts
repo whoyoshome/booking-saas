@@ -2,8 +2,9 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import request from 'supertest';
 import { AppModule } from '../src/app.module';
+import { futureMonday } from './support/dates';
 
-const MONDAY = '2026-09-14'; // real Monday, same date used in availability.e2e-spec.ts
+const MONDAY = futureMonday(); // upcoming Monday, same helper as availability.e2e-spec.ts
 
 describe('Branch schedules & availability intersection (e2e)', () => {
   let app: INestApplication;
@@ -140,7 +141,7 @@ describe('Branch schedules & availability intersection (e2e)', () => {
       .send({ branchId, dayOfWeek: 1, startTime: '09:00', endTime: '12:00' })
       .expect(201);
 
-    const holiday = '2026-09-21'; // also a Monday
+    const holiday = futureMonday(1); // also a Monday
     await request(app.getHttpServer())
       .post('/branch-schedule-exceptions')
       .set('Authorization', `Bearer ${tenantAToken}`)
