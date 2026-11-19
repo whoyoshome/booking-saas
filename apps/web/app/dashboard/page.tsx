@@ -179,7 +179,7 @@ export default function DashboardPage() {
       {branches !== null && (
         <section className="mb-10">
           <div className="mb-3 flex flex-wrap items-end justify-between gap-3">
-            <h2 className="text-sm font-medium text-ink-600">
+            <h2 className="font-display text-lg font-semibold text-ink">
               Branches ({branchPage.total}
               {branchPage.query ? ` of ${branches.length}` : ''})
             </h2>
@@ -230,7 +230,7 @@ export default function DashboardPage() {
       <section>
         <div className="mb-3 flex flex-wrap items-end justify-between gap-3">
           <div>
-            <h2 className="text-sm font-medium text-ink-600">
+            <h2 className="font-display text-lg font-semibold text-ink">
               Bookings{bookings !== null ? ` (${bookingPage.total})` : ''}
             </h2>
             {canOperate && (
