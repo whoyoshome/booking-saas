@@ -42,6 +42,20 @@ Design notes:
 - Demo data is generated relative to the current time instead of seeded, because the API cancels `PENDING` bookings after 10 minutes.
 - That 10-minute TTL is mirrored in the web app; a unit test reads the API source and fails if the two values diverge.
 
+## Screenshots
+
+Captured at 1280 px from a freshly seeded database by [`apps/web/scripts/screenshots.mjs`](apps/web/scripts/screenshots.mjs).
+
+| Login | Dashboard (admin) |
+|---|---|
+| ![Login](docs/screenshots/login.png) | ![Dashboard](docs/screenshots/dashboard.png) |
+
+| Alerts center (Demo) | New booking — 5. Confirm |
+|---|---|
+| ![Alerts center in demo mode](docs/screenshots/alerts-demo.png) | ![Booking confirmation](docs/screenshots/book-5-confirm.png) |
+
+New booking, steps 1–4: [Branch](docs/screenshots/book-1-branch.png) · [Service](docs/screenshots/book-2-service.png) · [Staff](docs/screenshots/book-3-staff.png) · [Time](docs/screenshots/book-4-time.png)
+
 ## Architecture
 
 ```mermaid
