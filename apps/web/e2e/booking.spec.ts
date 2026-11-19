@@ -3,6 +3,8 @@ import { API_URL } from './support/urls';
 import { AUTH_FILE, accessTokenOf } from './support/session';
 import { openSlotStep, slotLabel } from './support/booking-wizard';
 import { formatTimeRange } from '../lib/format-date';
+import { demoBranchId } from './support/api';
+import type { Service } from '../lib/types';
 
 test.use({ storageState: AUTH_FILE.client });
 
@@ -11,9 +13,18 @@ test('a client books a free slot and gets a PENDING booking', async ({ page, req
   const slot = availability.slots[0];
 
   await page.getByRole('button', { name: slotLabel(availability, 0), exact: true }).click();
-  await expect(
-    page.getByText(`Time: ${formatTimeRange(slot.startUtc, slot.endUtc, availability.timezone)}`),
-  ).toBeVisible();
+  // Confirm summary: the appointment (start + service duration, without the
+  // buffer that slot.endUtc includes) in the shared format, plus duration and price.
+  const service = (await request
+    .get(`${API_URL}/services?branchId=${await demoBranchId(request)}`, {
+      headers: { Authorization: `Bearer ${accessTokenOf('client')}` },
+    })
+    .then((r) => r.json())) as Service[];
+  const { durationMinutes } = service.find((s) => s.id === availability.serviceId)!;
+  const end = new Date(new Date(slot.startUtc).getTime() + durationMinutes * 60_000);
+  await expect(page.getByText(formatTimeRange(slot.startUtc, end, availability.timezone))).toBeVisible();
+  await expect(page.getByText('Duration', { exact: true })).toBeVisible();
+  await expect(page.getByText(/^Price: \$[\d,.]+$/)).toBeAttached();
 
   const created = page.waitForResponse((r) => r.url() === `${API_URL}/bookings` && r.request().method() === 'POST');
   await page.getByRole('button', { name: 'Confirm booking' }).click();

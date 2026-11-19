@@ -8,6 +8,8 @@ import { apiFetch } from '../../lib/api-client';
 import { Header } from '../../components/Header';
 import { STATUS_LABEL } from '../../components/status-style';
 import { formatDate, formatTime, formatTimeRange } from '../../lib/format-date';
+import { formatDuration } from '../../lib/format-time';
+import { formatPrice } from '../../lib/format-money';
 import type {
   Branch,
   Service,
@@ -105,10 +107,12 @@ function todayAsDateString(): string {
   return `${year}-${month}-${day}`;
 }
 
-function formatPrice(price: string | number): string {
-  const n = typeof price === 'string' ? Number(price) : price;
-  if (Number.isNaN(n)) return String(price);
-  return `$${n.toLocaleString('es')}`;
+// A slot's endUtc includes the service's buffer (cleanup time the staff
+// keeps free after it). The client's appointment ends at start + duration,
+// which is what the confirm summary shows next to "Duration".
+function appointmentEnd(slot: AvailabilitySlot, service: Service | null): string {
+  if (!service) return slot.endUtc;
+  return new Date(new Date(slot.startUtc).getTime() + service.durationMinutes * 60_000).toISOString();
 }
 
 const listItemClass =
@@ -431,7 +435,7 @@ function BookPageContent() {
                 <button onClick={() => chooseService(s)} className={listItemClass}>
                   <p className="text-ink">{s.name}</p>
                   <p className="text-sm text-ink-600">
-                    {s.durationMinutes} min · {formatPrice(s.price)}
+                    {formatDuration(s.durationMinutes)} · {formatPrice(s.price)}
                   </p>
                 </button>
               </li>
@@ -509,24 +513,42 @@ function BookPageContent() {
           <h2 ref={stepHeadingRef} tabIndex={-1} className="mb-2 font-medium text-ink">
             {STEP_LABEL.confirm}
           </h2>
-          <div className="mb-4 space-y-1 rounded border border-line bg-surface p-4 text-sm shadow-panel">
-            <p>
-              <span className="text-ink-600">Branch:</span> {selectedBranch?.name}
-            </p>
-            <p>
-              <span className="text-ink-600">Service:</span> {selectedService?.name}
-            </p>
-            <p>
-              <span className="text-ink-600">With:</span> {selectedStaff?.user.email}
-            </p>
-            <p>
-              <span className="text-ink-600">Date:</span>{' '}
-              {formatDate(selectedSlot.startUtc, selectedBranch?.timezone)}
-            </p>
-            <p>
-              <span className="text-ink-600">Time:</span>{' '}
-              {formatTimeRange(selectedSlot.startUtc, selectedSlot.endUtc, selectedBranch?.timezone)}
-            </p>
+          {/* What is being booked (service, price) leads; when and where
+              follow as a label/value list. */}
+          <div className="mb-4 rounded border border-line bg-surface p-5 text-sm shadow-panel">
+            {selectedService && (
+              <div className="flex items-start justify-between gap-4 border-b border-line pb-4">
+                <p className="font-display text-lg font-semibold text-ink">{selectedService.name}</p>
+                <p className="font-display text-lg font-semibold tabular-nums text-ink">
+                  <span className="sr-only">Price: </span>
+                  {formatPrice(selectedService.price)}
+                </p>
+              </div>
+            )}
+            <dl className="mt-4 grid grid-cols-[5.5rem_1fr] gap-x-4 gap-y-2">
+              <dt className="text-ink-600">Date</dt>
+              <dd className="font-medium text-ink">
+                {formatDate(selectedSlot.startUtc, selectedBranch?.timezone)}
+              </dd>
+              <dt className="text-ink-600">Time</dt>
+              <dd className="font-medium text-ink">
+                {formatTimeRange(
+                  selectedSlot.startUtc,
+                  appointmentEnd(selectedSlot, selectedService),
+                  selectedBranch?.timezone,
+                )}
+              </dd>
+              {selectedService && (
+                <>
+                  <dt className="text-ink-600">Duration</dt>
+                  <dd className="text-ink">{formatDuration(selectedService.durationMinutes)}</dd>
+                </>
+              )}
+              <dt className="text-ink-600">Branch</dt>
+              <dd className="text-ink">{selectedBranch?.name}</dd>
+              <dt className="text-ink-600">With</dt>
+              <dd className="text-ink">{selectedStaff?.user.email}</dd>
+            </dl>
           </div>
           <button
             onClick={confirmBooking}
