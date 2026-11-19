@@ -42,7 +42,7 @@ test.describe('logged out', () => {
     // operability, the real 401 is covered in login.spec.ts. A real
     // request would also count against the 5/min login throttle.
     await page.route('**/auth/login', (route) =>
-      route.fulfill({ status: 401, json: { message: 'Credenciales inválidas.' } }),
+      route.fulfill({ status: 401, json: { message: 'Invalid credentials.' } }),
     );
     await page.goto('/login');
     // The prerendered HTML only has the Suspense fallback ("Loading…");
@@ -69,7 +69,7 @@ test.describe('logged out', () => {
 
     // role="alert" makes screen readers announce it without moving focus.
     // (Next.js adds its own empty route-announcer alert, hence by text.)
-    await expect(page.getByText('Credenciales inválidas.')).toHaveAttribute('role', 'alert');
+    await expect(page.getByText('Invalid credentials.')).toHaveAttribute('role', 'alert');
     await expectNoAxeViolations(page);
   });
 });

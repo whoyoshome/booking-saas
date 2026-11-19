@@ -65,7 +65,7 @@ export class AuthService {
     // information leak: it would let someone enumerate valid tenant slugs
     // or registered emails one probe at a time.
     const invalidCredentialsError = new UnauthorizedException(
-      'Credenciales inválidas.',
+      'Invalid credentials.',
     );
 
     let tenantId: string | null = null;
@@ -124,7 +124,7 @@ export class AuthService {
 
   async refresh(refreshToken: string): Promise<TokenPair> {
     const invalidTokenError = new UnauthorizedException(
-      'Refresh token inválido o expirado.',
+      'Invalid or expired refresh token.',
     );
 
     let payload: JwtPayload;

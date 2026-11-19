@@ -45,13 +45,13 @@ afterEach(() => {
 describe('/login', () => {
   it('shows the API error message and stays on the page when credentials are rejected', async () => {
     mockApi({
-      'POST /auth/login': { status: 401, body: { message: 'Credenciales inválidas.' } },
+      'POST /auth/login': { status: 401, body: { message: 'Invalid credentials.' } },
     });
 
     renderLogin();
     await fillAndSubmit('cliente@tenant.dev', 'wrong-password');
 
-    expect(await screen.findByText('Credenciales inválidas.')).toBeInTheDocument();
+    expect(await screen.findByText('Invalid credentials.')).toBeInTheDocument();
     expect(mocks.push).not.toHaveBeenCalled();
     // The form is usable again for a second attempt.
     expect(screen.getByRole('button', { name: 'Sign in' })).toBeEnabled();

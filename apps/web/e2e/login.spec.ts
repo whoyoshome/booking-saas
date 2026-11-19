@@ -9,7 +9,7 @@ test('wrong password shows the API error and keeps the user on /login', async ({
   await page.getByLabel('Password').fill('not-the-password');
   await page.getByRole('button', { name: 'Sign in' }).click();
 
-  await expect(page.getByText('Credenciales inválidas.')).toBeVisible();
+  await expect(page.getByText('Invalid credentials.')).toBeVisible();
   await expect(page).toHaveURL(/\/login$/);
 });
 
