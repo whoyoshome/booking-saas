@@ -21,7 +21,7 @@ Password for all accounts: `ChangeMe123!`
 | Staff | `ana@tenant-a.dev` / `carlos@tenant-b.dev` | Business A / Business B |
 | Platform admin | `admin@bookingsaas.dev` | Super admin |
 
-Walkthrough: login as **cliente** → Business A → **Sucursal Centro** → New booking → weekday slot. Then sign out and sign in as **admin** of the same business: pending rows are at the top → Accept or Reject. Business B has a different catalog and timezone (`America/Mexico_City`).
+Walkthrough: login as **cliente** → Business A → **Downtown Branch** → New booking → weekday slot. Then sign out and sign in as **admin** of the same business: pending rows are at the top → Accept or Reject. Business B has a different catalog and timezone (`America/Mexico_City`).
 
 ## Alerts center
 

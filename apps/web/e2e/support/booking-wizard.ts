@@ -63,7 +63,7 @@ export async function pickDateWithSlots(page: Page, daysAhead: number): Promise<
 
 /**
  * Drives the wizard up to the "Time" step for the seed-demo data
- * (tenant-a: Sucursal Centro → Corte de cabello → ana@tenant-a.dev,
+ * (tenant-a: Downtown Branch → Haircut → ana@tenant-a.dev,
  * Mon–Fri 09:00–17:00 America/Bogota) and picks a date with free slots.
  */
 export async function openSlotStep(
@@ -72,7 +72,7 @@ export async function openSlotStep(
   daysAhead: number,
 ): Promise<AvailabilityResponse> {
   await openServiceStep(page, request);
-  await page.getByRole('button', { name: /Corte de cabello/ }).click();
+  await page.getByRole('button', { name: /Haircut/ }).click();
 
   // Choosing staff loads today's grid first; wait for it so a late
   // response can't be mistaken for the date picked below.

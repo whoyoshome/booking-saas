@@ -123,13 +123,13 @@ async function main() {
     // (tenantId, email) and the tenant isolation e2e tests.
     await seedTenantWithAdmin(tx, {
       slug: 'tenant-a',
-      name: 'Tenant A (Demo Clínica)',
+      name: 'Tenant A (Demo Clinic)',
       adminEmail: 'admin@tenant.dev',
     });
 
     await seedTenantWithAdmin(tx, {
       slug: 'tenant-b',
-      name: 'Tenant B (Demo Salón)',
+      name: 'Tenant B (Demo Salon)',
       adminEmail: 'admin@tenant.dev',
     });
   });

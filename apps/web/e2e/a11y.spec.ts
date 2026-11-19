@@ -108,7 +108,7 @@ test.describe('client', () => {
   test('wizard branch step has no axe violations', async ({ page }) => {
     await page.goto('/book');
     await expect(page.getByRole('heading', { name: 'Branch' })).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Sucursal Centro' }).first()).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Downtown Branch' }).first()).toBeVisible();
     await expectNoAxeViolations(page);
   });
 
@@ -120,7 +120,7 @@ test.describe('client', () => {
     await expectNoAxeViolations(page);
 
     await page.keyboard.press('Tab');
-    await expectVisibleFocus(page.getByRole('button', { name: /Corte de cabello/ }));
+    await expectVisibleFocus(page.getByRole('button', { name: /Haircut/ }));
     await page.keyboard.press('Enter');
 
     // The pressed button is gone; focus moved to the new step, not <body>.

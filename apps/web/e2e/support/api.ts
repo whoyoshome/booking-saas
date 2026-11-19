@@ -18,7 +18,7 @@ async function getAs<T>(request: APIRequestContext, path: string): Promise<T> {
  */
 export async function demoBranchId(request: APIRequestContext): Promise<string> {
   const branch = (await getAs<Branch[]>(request, '/branches')).find(
-    (b) => b.name === 'Sucursal Centro' && b.timezone === 'America/Bogota',
+    (b) => b.name === 'Downtown Branch' && b.timezone === 'America/Bogota',
   );
   if (!branch) throw new Error('seed-demo branch not found — run `npm run seed:demo` in apps/api.');
   return branch.id;
