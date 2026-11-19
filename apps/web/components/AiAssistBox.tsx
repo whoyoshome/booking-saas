@@ -81,7 +81,7 @@ export function AiAssistBox() {
         <button
           type="submit"
           disabled={submitting}
-          className="rounded-md bg-black px-3 py-1.5 text-sm text-white disabled:opacity-50"
+          className="rounded-md bg-pine px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-pine-dark disabled:cursor-not-allowed disabled:opacity-50"
         >
           {submitting ? 'Asking…' : 'Ask'}
         </button>

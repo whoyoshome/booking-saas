@@ -23,7 +23,7 @@ export function StatusFilter({ value, onChange, counts }: StatusFilterProps) {
             onClick={() => onChange(option)}
             className={`rounded-full border px-3 py-1 text-xs font-medium transition-colors ${
               active
-                ? 'border-ink bg-ink text-white'
+                ? 'border-pine bg-pine text-white'
                 : 'border-line bg-surface text-ink-600 hover:border-ink-400'
             }`}
           >

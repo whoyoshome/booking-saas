@@ -98,7 +98,7 @@ function AlertsView({ isDemo }: { isDemo: boolean }) {
   const waitingForData = !isDemo && bookings === null && !error;
 
   const sourceLink = (active: boolean) =>
-    `rounded px-3 py-1 ${active ? 'bg-ink text-white' : 'text-ink-600 hover:text-ink'}`;
+    `rounded px-3 py-1 ${active ? 'bg-pine text-white' : 'text-ink-600 hover:text-ink'}`;
 
   return (
     <main className="mx-auto max-w-5xl p-8">
