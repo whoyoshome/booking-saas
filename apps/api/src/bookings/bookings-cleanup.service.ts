@@ -35,25 +35,33 @@ export class BookingsCleanupService {
 
   @Cron(CronExpression.EVERY_MINUTE)
   async expireStalePendingBookings(): Promise<void> {
-    const cutoff = new Date(Date.now() - PENDING_TTL_MINUTES * 60_000);
-
     // Also resolves which Redis keys to invalidate, inside the same
     // transaction. The invalidation itself runs after commit, since Redis
     // is not transactional with Postgres.
     const invalidations = await this.prisma.$transaction(async (tx) => {
       await tx.$executeRaw`SELECT set_config('app.is_super_admin', 'true', true)`;
 
-      const stale = await tx.booking.findMany({
-        where: { status: BookingStatus.PENDING, createdAt: { lt: cutoff } },
-        select: { id: true, tenantId: true, staffId: true, startTime: true },
-      });
+      // ONE conditional UPDATE, not "read the stale ids, then update those
+      // ids": a booking confirmed between the read and the write would have
+      // been cancelled anyway. Here the status filter is part of the UPDATE
+      // itself, so PostgreSQL re-checks it on the row it locks (a booking
+      // confirmed concurrently is skipped), and RETURNING yields exactly the
+      // rows this sweep cancelled — the only ones whose cache needs
+      // invalidating. Prisma 5 has no updateManyAndReturn, hence raw SQL.
+      // Timestamps are `timestamp` columns holding UTC, as Prisma writes them.
+      const stale = await tx.$queryRaw<
+        { id: string; tenantId: string; staffId: string; startTime: Date }[]
+      >`
+        UPDATE bookings
+        SET status = ${BookingStatus.CANCELLED}::"BookingStatus",
+            cancelled_at = NOW() AT TIME ZONE 'UTC',
+            updated_at = NOW() AT TIME ZONE 'UTC'
+        WHERE status = ${BookingStatus.PENDING}::"BookingStatus"
+          AND created_at < (NOW() AT TIME ZONE 'UTC') - make_interval(mins => ${PENDING_TTL_MINUTES}::int)
+        RETURNING id, tenant_id AS "tenantId", staff_id AS "staffId", start_time AS "startTime"
+      `;
 
       if (stale.length === 0) return [];
-
-      await tx.booking.updateMany({
-        where: { id: { in: stale.map((b) => b.id) } },
-        data: { status: BookingStatus.CANCELLED, cancelledAt: new Date() },
-      });
 
       const distinctStaffIds = [...new Set(stale.map((b) => b.staffId))];
       const staffBranches = await tx.staff.findMany({

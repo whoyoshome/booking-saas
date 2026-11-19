@@ -1,8 +1,11 @@
 import { BadRequestException, ConflictException } from '@nestjs/common';
+import { Role } from '@prisma/client';
 import { BookingsService } from './bookings.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { AvailabilityService } from '../availability/availability.service';
 import { RedisService } from '../redis/redis.service';
+import { AuthenticatedUser } from '../auth/types/jwt-payload.type';
+import { CreateBookingDto } from './dto/create-booking.dto';
 
 /**
  * Unit tests translateDatabaseError() in isolation — the constructor's
@@ -61,5 +64,32 @@ describe('BookingsService.translateDatabaseError', () => {
 
   it('handles a non-Error thrown value without crashing', () => {
     expect(() => translate('a plain string was thrown')).not.toThrow();
+  });
+});
+
+describe('BookingsService.create — startTime in the past', () => {
+  const user: AuthenticatedUser = { id: 'user-1', role: Role.TENANT_ADMIN, tenantId: 'tenant-1' };
+
+  // Any database access fails the test: the past check must come first.
+  const prismaThatMustNotBeUsed = {
+    get client(): never {
+      throw new Error('the database must not be queried for a past startTime');
+    },
+  } as unknown as PrismaService;
+
+  function serviceUnderTest() {
+    return new BookingsService(prismaThatMustNotBeUsed, {} as AvailabilityService, {} as RedisService);
+  }
+
+  it.each([
+    ['a minute ago', () => new Date(Date.now() - 60_000).toISOString()],
+    ['exactly now', () => new Date().toISOString()],
+    ['last year', () => new Date(Date.now() - 365 * 24 * 3_600_000).toISOString()],
+  ])('rejects a startTime from %s with 400, before touching the database', async (_label, startTime) => {
+    const dto = { staffId: 'staff-1', serviceId: 'service-1', startTime: startTime() } as CreateBookingDto;
+
+    await expect(serviceUnderTest().create(user, dto)).rejects.toThrow(
+      new BadRequestException('startTime is in the past. Only upcoming slots can be booked.'),
+    );
   });
 });

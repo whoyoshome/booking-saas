@@ -2,11 +2,11 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import request from 'supertest';
 import { AppModule } from '../src/app.module';
+import { futureMonday } from './support/dates';
 
-// 2026-09-14 is a real Monday (dayOfWeek=1) relative to "today" in this
-// project's timeline (Thursday, 2026-09-10) — picked deliberately so the
-// StaffSchedule's dayOfWeek=1 rows actually apply to this test date.
-const MONDAY = '2026-09-14';
+// A Monday (dayOfWeek=1) at least a week ahead, so the StaffSchedule's
+// dayOfWeek=1 rows apply and every slot is still in the future.
+const MONDAY = futureMonday();
 
 describe('Availability (e2e)', () => {
   let app: INestApplication;
@@ -116,7 +116,7 @@ describe('Availability (e2e)', () => {
   });
 
   it('an isAvailable=false exception returns zero slots, even though the recurring schedule would allow it', async () => {
-    const holiday = '2026-09-21'; // also a Monday
+    const holiday = futureMonday(1); // also a Monday
     await request(app.getHttpServer())
       .post('/staff-schedule-exceptions')
       .set('Authorization', `Bearer ${tenantAToken}`)
@@ -132,7 +132,7 @@ describe('Availability (e2e)', () => {
   });
 
   it('an isAvailable=true exception REPLACES the recurring schedule, not merges with it', async () => {
-    const specialDay = '2026-09-28'; // also a Monday
+    const specialDay = futureMonday(2); // also a Monday
     await request(app.getHttpServer())
       .post('/staff-schedule-exceptions')
       .set('Authorization', `Bearer ${tenantAToken}`)

@@ -2,8 +2,9 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import request from 'supertest';
 import { AppModule } from '../src/app.module';
+import { futureMonday } from './support/dates';
 
-const MONDAY = '2026-09-14';
+const MONDAY = futureMonday();
 
 async function bootApp(): Promise<INestApplication> {
   const moduleRef: TestingModule = await Test.createTestingModule({
