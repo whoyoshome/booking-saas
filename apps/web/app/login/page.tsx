@@ -30,7 +30,7 @@ const inputClass =
   'w-full rounded border border-line bg-surface px-3 py-2 text-ink placeholder:text-ink-400 focus-visible:border-pine';
 
 function postLoginPath(from: string | null): string {
-  if (from && (from.startsWith('/dashboard') || from.startsWith('/book'))) {
+  if (from && ['/dashboard', '/alerts', '/book'].some((p) => from.startsWith(p))) {
     return from;
   }
   return '/dashboard';

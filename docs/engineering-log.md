@@ -2361,3 +2361,24 @@ Demo limpia local (después de `docker-compose down -v`): migrate como `booking_
 - [ ] Vercel muestra este front (hace falta push + redeploy).
 
 Cuando el push esté verde y Vercel actualizado, **11-C** (Terraform `not applied`) puede seguir — no antes, y no es más urgente que ver la demo pública con esta UX.
+
+---
+
+## Phase 13 — Alerts center (`/alerts`)
+
+A triage view for tenant admins and staff: priority KPIs, status filters and a list sorted by urgency, with a demo mode backed by time-relative fixtures.
+
+**Scope**
+
+- `apps/web/lib/alerts.ts`: pure priority, summary, sort and filter functions (`now` is always a parameter).
+- `apps/web/app/alerts/` and `apps/web/components/alerts/`: page, KPI cards, status filter, rows.
+- Vitest + Testing Library for logic, components and the page; ESLint, `tsc --noEmit` and tests run in a dedicated `web` CI job.
+
+**Decisions**
+
+- No new endpoint (hard rule 2): priority is derived client-side from `status`, `startTime`, `endTime` and `createdAt`. Aggregates move to the API if volume requires it.
+- A `CONFIRMED` booking whose end time has passed is `CLOSED`; nothing in the backend moves it to `COMPLETED`.
+- Within `CRITICAL`, rows sort by the earliest of expiry and start.
+- KPI cards count by priority; filter chips count by stored status.
+- Demo data uses fixtures because the cleanup cron cancels `PENDING` bookings after 10 minutes. The TTL is mirrored in the web app and guarded by a test that reads the API source.
+- Never apply two Tailwind utilities for the same CSS property to one element; state-dependent styles live only in the per-state map.

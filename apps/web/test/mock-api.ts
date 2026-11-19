@@ -1,8 +1,10 @@
+import { vi } from 'vitest';
+
 /**
- * Fakes the network boundary — the ONLY thing these component tests mock
- * besides next/navigation. Everything between the component and `fetch`
- * (AuthProvider, apiFetch, token storage) is the real code, so a test
- * breaks if the UI stops talking to the API the way the API expects.
+ * Fakes the network boundary for tests that keep the real AuthProvider and
+ * apiFetch in the loop (login, dashboard, AiAssistBox): only `fetch` is
+ * replaced, so a test breaks if the UI stops talking to the API the way
+ * the API expects. Pair with `vi.unstubAllGlobals()` in afterEach.
  *
  * Routes are keyed "METHOD /path" (query string included). A handler can
  * return a response directly or a promise, which lets a test hold a
@@ -18,7 +20,7 @@ type Handler = (init: RequestInit | undefined) => FakeResponse | Promise<FakeRes
 const API_URL = 'http://localhost:3001';
 
 export function mockApi(routes: Record<string, Handler | FakeResponse>) {
-  const fetchMock = jest.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+  const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
     const url = String(input);
     const path = url.startsWith(API_URL) ? url.slice(API_URL.length) : url;
     const key = `${(init?.method ?? 'GET').toUpperCase()} ${path}`;
@@ -33,7 +35,7 @@ export function mockApi(routes: Record<string, Handler | FakeResponse>) {
       json: async () => body,
     } as Response;
   });
-  global.fetch = fetchMock as unknown as typeof fetch;
+  vi.stubGlobal('fetch', fetchMock);
   return fetchMock;
 }
 

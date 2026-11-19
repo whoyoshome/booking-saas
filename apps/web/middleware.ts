@@ -9,7 +9,7 @@ import { NextResponse, type NextRequest } from 'next/server';
  * no token value and is NOT httpOnly.
  *
  * This middleware uses it purely for edge-level UX routing: redirect an
- * unauthenticated visitor away from /dashboard and /book before the page
+ * unauthenticated visitor away from /dashboard, /alerts and /book before the page
  * ships any JS, and redirect an already-authenticated visitor away from
  * /login. It is NOT the security boundary — it can't be, a client-set
  * cookie is just as forgeable as the localStorage flag it mirrors. Every
@@ -32,7 +32,7 @@ import { NextResponse, type NextRequest } from 'next/server';
  */
 const SESSION_COOKIE = 'bk_session';
 
-const PROTECTED_PREFIXES = ['/dashboard', '/book'];
+const PROTECTED_PREFIXES = ['/dashboard', '/alerts', '/book'];
 
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
@@ -60,5 +60,5 @@ export function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/', '/login', '/dashboard/:path*', '/book/:path*'],
+  matcher: ['/', '/login', '/dashboard/:path*', '/alerts/:path*', '/book/:path*'],
 };

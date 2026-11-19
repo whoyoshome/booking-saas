@@ -8,6 +8,7 @@ build/
 .DS_Store
 coverage/
 .turbo/
+*.tsbuildinfo
 
 # Playwright (apps/web)
 apps/web/e2e/.auth/
