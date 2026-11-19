@@ -18,7 +18,10 @@ const config: Config = {
         ink: {
           DEFAULT: '#17191C',
           600: '#565B61',
-          400: '#8A9096',
+          // Was #8A9096 (2.9:1 on paper) — failed WCAG AA for the small
+          // helper text it's used on. #666C72 is 4.8:1 on paper, 5.3:1 on
+          // surface, still visibly lighter than ink-600.
+          400: '#666C72',
         },
         paper: '#F3F4F0',
         surface: '#FFFFFF',
@@ -30,7 +33,8 @@ const config: Config = {
         },
         gold: {
           DEFAULT: '#C4880F',
-          dark: '#9C6C0C',
+          // Was #9C6C0C (4.1:1 on gold-bg, the PENDING chip). Now 5.2:1.
+          dark: '#875D09',
           bg: '#FBF1DC',
         },
         rust: {

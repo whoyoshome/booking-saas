@@ -9,3 +9,8 @@ build/
 coverage/
 .turbo/
 *.tsbuildinfo
+
+# Playwright (apps/web)
+apps/web/e2e/.auth/
+apps/web/playwright-report/
+apps/web/test-results/

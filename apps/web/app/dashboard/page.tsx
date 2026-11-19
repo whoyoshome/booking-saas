@@ -1,14 +1,22 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Suspense, lazy, useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '../../lib/auth-context';
 import { apiFetch } from '../../lib/api-client';
 import { Header } from '../../components/Header';
-import { AiAssistBox } from '../../components/AiAssistBox';
+import { AiAssistPlaceholder } from '../../components/AiAssistFrame';
 import { usePagedList } from '../../components/use-paged-list';
 import type { Branch, Booking } from '../../lib/types';
+
+// Only TENANT_ADMIN/STAFF ever render the assistant, so it's split into
+// its own chunk: a CLIENT never downloads it, and admin/staff fetch it
+// only once /auth/me has resolved the role. The placeholder is the same
+// frame at the same height, so nothing shifts when the chunk arrives.
+const AiAssistBox = lazy(() =>
+  import('../../components/AiAssistBox').then((m) => ({ default: m.AiAssistBox })),
+);
 
 function matchBranch(b: Branch, q: string) {
   return `${b.name} ${b.timezone}`.toLowerCase().includes(q);
@@ -183,10 +191,14 @@ export default function DashboardPage() {
       {/* TENANT_ADMIN/STAFF only — mirrors @Roles(TENANT_ADMIN, STAFF) on
           POST /ai/assist. This check is UI convenience, not the security
           boundary; the API enforces the real restriction regardless. */}
-      {canOperate && <AiAssistBox />}
+      {canOperate && (
+        <Suspense fallback={<AiAssistPlaceholder />}>
+          <AiAssistBox />
+        </Suspense>
+      )}
 
       {error && (
-        <p className="mb-4 rounded bg-rust-bg px-3 py-2 text-sm text-rust-dark">
+        <p role="alert" className="mb-4 rounded bg-rust-bg px-3 py-2 text-sm text-rust-dark">
           Error consultando la API: {error}
         </p>
       )}
@@ -205,6 +217,7 @@ export default function DashboardPage() {
                 type="search"
                 value={branchPage.query}
                 onChange={(e) => branchPage.onQueryChange(e.target.value)}
+                aria-label="Buscar sucursal"
                 placeholder="Buscar sucursal…"
                 className={searchInputClass}
               />
@@ -265,6 +278,7 @@ export default function DashboardPage() {
               type="search"
               value={bookingPage.query}
               onChange={(e) => bookingPage.onQueryChange(e.target.value)}
+              aria-label="Buscar reserva"
               placeholder="Buscar reserva…"
               className={searchInputClass}
             />
@@ -272,7 +286,7 @@ export default function DashboardPage() {
         </div>
 
         {bookingsError && (
-          <p className="rounded bg-rust-bg px-3 py-2 text-sm text-rust-dark">
+          <p role="alert" className="rounded bg-rust-bg px-3 py-2 text-sm text-rust-dark">
             Error consultando reservas: {bookingsError}
           </p>
         )}
@@ -351,7 +365,7 @@ export default function DashboardPage() {
                     )}
 
                     {rowError?.id === b.id && (
-                      <p className="max-w-[16rem] text-right text-xs text-rust-dark">
+                      <p role="alert" className="max-w-[16rem] text-right text-xs text-rust-dark">
                         {rowError.message}
                       </p>
                     )}

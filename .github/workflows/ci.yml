@@ -59,8 +59,11 @@ jobs:
 
       - run: npm run lint
 
+      # --no-workspaces here too: without it npx resolves bins from the
+      # workspace root (which has no node_modules), misses the local
+      # TypeScript and downloads the unrelated `tsc` package instead.
       - name: Typecheck
-        run: npx tsc --noEmit
+        run: npx --no-workspaces tsc --noEmit
 
       - name: Unit tests
         run: npm test

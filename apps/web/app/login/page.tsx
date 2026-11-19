@@ -152,7 +152,9 @@ function LoginPageContent() {
         </div>
 
         {error && (
-          <p className="rounded bg-rust-bg px-3 py-2 text-sm text-rust-dark">{error}</p>
+          <p role="alert" className="rounded bg-rust-bg px-3 py-2 text-sm text-rust-dark">
+            {error}
+          </p>
         )}
 
         <button

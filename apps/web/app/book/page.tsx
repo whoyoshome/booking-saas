@@ -48,11 +48,15 @@ function StepProgress({ step }: { step: Step }) {
   const currentIndex = WIZARD_STEPS.indexOf(step);
 
   return (
-    <ol className="mb-6 flex items-center gap-2">
+    <ol aria-label="Pasos de la reserva" className="mb-6 flex items-center gap-2">
       {WIZARD_STEPS.map((s, i) => {
         const state = i < currentIndex ? 'done' : i === currentIndex ? 'current' : 'upcoming';
         return (
-          <li key={s} className="flex flex-1 items-center gap-2">
+          <li
+            key={s}
+            aria-current={state === 'current' ? 'step' : undefined}
+            className="flex flex-1 items-center gap-2"
+          >
             <span
               className={
                 'flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-medium ' +
@@ -60,7 +64,7 @@ function StepProgress({ step }: { step: Step }) {
                   ? 'bg-pine text-white'
                   : state === 'done'
                     ? 'bg-pine-bg text-pine-dark'
-                    : 'bg-line text-ink-400')
+                    : 'bg-line text-ink-600')
               }
             >
               {i + 1}
@@ -132,6 +136,18 @@ function BookPageContent() {
   const [branchQuery, setBranchQuery] = useState('');
   const [branchVisible, setBranchVisible] = useState(8);
   const preselectApplied = useRef(false);
+
+  // Keyboard/screen-reader users: choosing an option unmounts the button
+  // they just pressed, which would drop focus onto <body> and make them
+  // Tab from the top of the page again. Move focus to the new step's
+  // heading instead (and so announce it). Skipped on first render.
+  const stepHeadingRef = useRef<HTMLHeadingElement>(null);
+  const renderedStep = useRef(step);
+  useEffect(() => {
+    if (renderedStep.current === step) return;
+    renderedStep.current = step;
+    stepHeadingRef.current?.focus();
+  }, [step]);
 
   // P0 — a branch card on the dashboard links to /book?branchId=<id>.
   // Once the branches list loads, if that param is present, auto-advance
@@ -357,11 +373,17 @@ function BookPageContent() {
         )}
       </div>
 
-      {error && <p className="mb-4 rounded bg-rust-bg p-3 text-sm text-rust-dark">{error}</p>}
+      {error && (
+        <p role="alert" className="mb-4 rounded bg-rust-bg p-3 text-sm text-rust-dark">
+          {error}
+        </p>
+      )}
 
       {step === 'branch' && (
         <section>
-          <h2 className="mb-2 font-medium text-ink">{STEP_LABEL.branch}</h2>
+          <h2 ref={stepHeadingRef} tabIndex={-1} className="mb-2 font-medium text-ink">
+            {STEP_LABEL.branch}
+          </h2>
           {branches.length > 8 && (
             <input
               type="search"
@@ -370,6 +392,7 @@ function BookPageContent() {
                 setBranchQuery(e.target.value);
                 setBranchVisible(8);
               }}
+              aria-label="Buscar sucursal"
               placeholder="Buscar sucursal…"
               className="mb-3 w-full rounded-md border border-line bg-surface px-3 py-1.5 text-sm placeholder:text-ink-400 focus-visible:border-pine"
             />
@@ -398,7 +421,9 @@ function BookPageContent() {
 
       {step === 'service' && (
         <section>
-          <h2 className="mb-2 font-medium text-ink">{STEP_LABEL.service}</h2>
+          <h2 ref={stepHeadingRef} tabIndex={-1} className="mb-2 font-medium text-ink">
+            {STEP_LABEL.service}
+          </h2>
           <ul className="space-y-2">
             {services.map((s) => (
               <li key={s.id}>
@@ -419,7 +444,9 @@ function BookPageContent() {
 
       {step === 'staff' && (
         <section>
-          <h2 className="mb-2 font-medium text-ink">{STEP_LABEL.staff}</h2>
+          <h2 ref={stepHeadingRef} tabIndex={-1} className="mb-2 font-medium text-ink">
+            {STEP_LABEL.staff}
+          </h2>
           <ul className="space-y-2">
             {staffList.map((s) => (
               <li key={s.id}>
@@ -439,8 +466,14 @@ function BookPageContent() {
 
       {step === 'slot' && (
         <section>
-          <h2 className="mb-2 font-medium text-ink">{STEP_LABEL.slot}</h2>
+          <h2 ref={stepHeadingRef} tabIndex={-1} className="mb-2 font-medium text-ink">
+            {STEP_LABEL.slot}
+          </h2>
+          <label htmlFor="booking-date" className="mb-1 block text-sm font-medium text-ink-600">
+            Fecha
+          </label>
           <input
+            id="booking-date"
             type="date"
             value={date}
             onChange={(e) => handleDateChange(e.target.value)}
@@ -472,7 +505,9 @@ function BookPageContent() {
 
       {step === 'confirm' && selectedSlot && (
         <section>
-          <h2 className="mb-2 font-medium text-ink">{STEP_LABEL.confirm}</h2>
+          <h2 ref={stepHeadingRef} tabIndex={-1} className="mb-2 font-medium text-ink">
+            {STEP_LABEL.confirm}
+          </h2>
           <div className="mb-4 space-y-1 rounded border border-line bg-surface p-4 text-sm shadow-panel">
             <p>
               <span className="text-ink-600">Sucursal:</span> {selectedBranch?.name}
@@ -503,9 +538,9 @@ function BookPageContent() {
 
       {step === 'done' && createdBooking && (
         <section className="rounded border border-pine bg-pine-bg p-4">
-          <p className="font-medium text-pine-dark">
+          <h2 ref={stepHeadingRef} tabIndex={-1} className="font-medium text-pine-dark">
             Reserva creada — estado: {createdBooking.status}
-          </p>
+          </h2>
           <p className="mt-1 text-sm text-pine-dark">
             {user?.role === 'CLIENT'
               ? 'Quedó pendiente. El admin o el staff del local la aceptan o la rechazan; vos no podés confirmarla.'
