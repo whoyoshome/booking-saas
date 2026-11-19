@@ -2,12 +2,18 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import request from 'supertest';
 import * as argon2 from 'argon2';
-import { Role } from '@prisma/client';
+import { BookingStatus, Role } from '@prisma/client';
 import { AppModule } from '../src/app.module';
 import { PrismaService } from '../src/prisma/prisma.service';
+import { RedisService } from '../src/redis/redis.service';
+import { bookingsCacheKey } from '../src/availability/availability.service';
+import { BookingsCleanupService } from '../src/bookings/bookings-cleanup.service';
 import { futureMonday, utcDate, utcIsoDayOfWeek } from './support/dates';
+import { inTenant, raceAgainstUncommittedChange } from './support/races';
 
 const MONDAY = futureMonday();
+// Bookings made by the race tests below, kept off MONDAY's grid.
+const NEXT_MONDAY = futureMonday(1);
 
 /**
  * Staff schedule: 09:00-17:00. Service: duration 30 + buffer 10 = 40 min
@@ -351,6 +357,59 @@ describe('Bookings (e2e)', () => {
         .expect(400);
 
       expect(res.body.message).toBe('startTime is in the past. Only upcoming slots can be booked.');
+    });
+  });
+
+  describe('expiring stale PENDING bookings (cron sweep)', () => {
+    /** A PENDING booking on NEXT_MONDAY, backdated past the 10-minute TTL. */
+    async function stalePendingBooking(time: string) {
+      const created = await request(app.getHttpServer())
+        .post('/bookings')
+        .set('Authorization', `Bearer ${tenantAToken}`)
+        .send({ staffId, serviceId, startTime: `${NEXT_MONDAY}T${time}:00.000Z` })
+        .expect(201);
+      const { id, tenantId } = created.body as { id: string; tenantId: string };
+      await inTenant(moduleRef.get(PrismaService), tenantId, (tx) =>
+        tx.booking.update({ where: { id }, data: { createdAt: new Date(Date.now() - 20 * 60_000) } }),
+      );
+      return { id, tenantId };
+    }
+
+    it('cancels a stale PENDING booking and invalidates its availability cache', async () => {
+      const prisma = moduleRef.get(PrismaService);
+      const redis = moduleRef.get(RedisService);
+      const { id, tenantId } = await stalePendingBooking('09:00');
+      const cacheKey = bookingsCacheKey(tenantId, staffId, NEXT_MONDAY);
+      await redis.setJson(cacheKey, [], 60);
+
+      await moduleRef.get(BookingsCleanupService).expireStalePendingBookings();
+
+      const after = await inTenant(prisma, tenantId, (tx) => tx.booking.findUniqueOrThrow({ where: { id } }));
+      expect(after.status).toBe(BookingStatus.CANCELLED);
+      expect(after.cancelledAt).not.toBeNull();
+      expect(await redis.getJson(cacheKey)).toBeNull();
+    });
+
+    it('does not cancel a booking confirmed while the sweep runs, nor invalidate its cache', async () => {
+      const prisma = moduleRef.get(PrismaService);
+      const redis = moduleRef.get(RedisService);
+      const { id, tenantId } = await stalePendingBooking('09:40');
+      const cacheKey = bookingsCacheKey(tenantId, staffId, NEXT_MONDAY);
+      await redis.setJson(cacheKey, [], 60);
+
+      // The confirmation commits while the sweep is already writing.
+      await raceAgainstUncommittedChange(
+        prisma,
+        tenantId,
+        (tx) => tx.booking.update({ where: { id }, data: { status: BookingStatus.CONFIRMED } }),
+        () => moduleRef.get(BookingsCleanupService).expireStalePendingBookings(),
+      );
+
+      const after = await inTenant(prisma, tenantId, (tx) => tx.booking.findUniqueOrThrow({ where: { id } }));
+      expect(after.status).toBe(BookingStatus.CONFIRMED);
+      expect(after.cancelledAt).toBeNull();
+      // Nothing was cancelled for this staff member, so its cache stays.
+      expect(await redis.getJson(cacheKey)).toEqual([]);
     });
   });
 });
