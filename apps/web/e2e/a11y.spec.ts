@@ -80,6 +80,15 @@ test.describe('admin', () => {
     await expect(page.getByLabel('Pregunta para el asistente')).toBeVisible();
     await expectNoAxeViolations(page);
   });
+
+  for (const url of ['/alerts', '/alerts?demo=1']) {
+    test(`alerts center (${url}) has no axe violations`, async ({ page, request }) => {
+      await createPendingBooking(request);
+      await page.goto(url);
+      await expect(page.getByRole('list', { name: 'Reservas por urgencia' })).toBeVisible();
+      await expectNoAxeViolations(page);
+    });
+  }
 });
 
 test.describe('client', () => {
