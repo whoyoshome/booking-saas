@@ -1,0 +1,123 @@
+name: Frontend E2E
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  # Browser tests against the real stack: production build of apps/web
+  # (the standalone server.js Dockerfile.prod ships) + the compiled NestJS
+  # API + PostgreSQL + Redis. Covers login, booking (incl. a real 409 from
+  # the exclusion constraint), axe accessibility and lazy loading.
+  # Lint, typecheck and Vitest unit tests for apps/web run in ci.yml's
+  # `web` job, not here.
+  playwright:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: booking_admin
+          POSTGRES_PASSWORD: change_me_local_only
+          POSTGRES_DB: booking_saas
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U booking_admin -d booking_saas"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    # Same values and two-role convention as ci.yml's e2e job:
+    # DATABASE_URL = booking_app (subject to RLS) is what the API runs
+    # with; DATABASE_MIGRATE_URL = booking_admin (owner) is used only for
+    # init.sql and migrations. Playwright's webServer starts the API with
+    # this environment.
+    env:
+      DATABASE_URL: postgresql://booking_app:change_me_local_only_app@localhost:5432/booking_saas?schema=public
+      DATABASE_MIGRATE_URL: postgresql://booking_admin:change_me_local_only@localhost:5432/booking_saas?schema=public
+      REDIS_URL: redis://localhost:6379
+      JWT_SECRET: ci_jwt_secret_never_used_outside_ci
+      JWT_REFRESH_SECRET: ci_jwt_refresh_secret_never_used_outside_ci
+      JWT_ACCESS_EXPIRES_IN: 15m
+      JWT_REFRESH_EXPIRES_IN: 7d
+      SEED_SUPER_ADMIN_EMAIL: admin@bookingsaas.dev
+      SEED_SUPER_ADMIN_PASSWORD: ChangeMe123!
+      NEXT_TELEMETRY_DISABLED: 1
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: |
+            apps/api/package-lock.json
+            apps/web/package-lock.json
+
+      - name: Install postgresql-client
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends postgresql-client
+
+      # --no-workspaces: each app has its own lockfile (see ci.yml).
+      - name: Install API dependencies
+        working-directory: apps/api
+        run: npm ci --no-workspaces
+
+      - name: Apply init.sql (btree_gist + booking_app role)
+        run: |
+          PGPASSWORD=change_me_local_only psql -h localhost -U booking_admin -d booking_saas \
+            -f docker/postgres/init.sql
+
+      - name: Apply migrations (as booking_admin/owner)
+        working-directory: apps/api
+        run: DATABASE_URL="$DATABASE_MIGRATE_URL" npx prisma migrate deploy
+
+      # seed.ts = super admin + tenants + admin/client users;
+      # seed-demo.ts = the branch, service, staff and schedules the
+      # booking flow needs (seed.ts alone has none).
+      - name: Seed (base + demo data)
+        working-directory: apps/api
+        run: npm run seed && npm run seed:demo
+
+      - name: Build API
+        working-directory: apps/api
+        run: npm run build
+
+      - name: Install web dependencies
+        working-directory: apps/web
+        run: npm ci --no-workspaces
+
+      - name: Install Playwright Chromium
+        working-directory: apps/web
+        run: npx playwright install --with-deps chromium
+
+      - name: Build web (production)
+        working-directory: apps/web
+        run: npm run build
+
+      - name: Playwright
+        working-directory: apps/web
+        run: npm run test:e2e
+
+      - name: Upload Playwright report
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: |
+            apps/web/playwright-report/
+            apps/web/test-results/
+          retention-days: 7

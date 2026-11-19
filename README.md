@@ -1,5 +1,8 @@
 # Booking SaaS
 
+[![CI](https://github.com/whoyoshome/booking-saas/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/whoyoshome/booking-saas/actions/workflows/ci.yml)
+[![Frontend E2E](https://github.com/whoyoshome/booking-saas/actions/workflows/frontend.yml/badge.svg?branch=main)](https://github.com/whoyoshome/booking-saas/actions/workflows/frontend.yml)
+
 Multi-tenant appointment booking: **NestJS** API and **Next.js** web app. PostgreSQL **Row Level Security** keeps tenants isolated. Availability uses the branch timezone (Luxon). Overlapping bookings are rejected by a database exclusion constraint.
 
 ## Demo
