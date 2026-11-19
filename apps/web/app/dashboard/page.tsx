@@ -8,7 +8,9 @@ import { apiFetch } from '../../lib/api-client';
 import { Header } from '../../components/Header';
 import { AiAssistPlaceholder } from '../../components/AiAssistFrame';
 import { usePagedList } from '../../components/use-paged-list';
+import { STATUS_BADGE, STATUS_ICON, STATUS_LABEL, STATUS_ROW } from '../../components/status-style';
 import type { Branch, Booking } from '../../lib/types';
+import { formatDateTime } from '../../lib/format-date';
 
 // Only TENANT_ADMIN/STAFF ever render the assistant, so it's split into
 // its own chunk: a CLIENT never downloads it, and admin/staff fetch it
@@ -23,39 +25,8 @@ function matchBranch(b: Branch, q: string) {
 }
 
 function matchBooking(b: Booking, q: string) {
-  return `${b.service?.name ?? ''} ${b.branch?.name ?? ''} ${b.status} ${b.client?.email ?? ''}`.toLowerCase().includes(q);
+  return `${b.service?.name ?? ''} ${b.branch?.name ?? ''} ${STATUS_LABEL[b.status]} ${b.client?.email ?? ''}`.toLowerCase().includes(q);
 }
-
-// Status carries meaning through color, not just text — same three-color
-// system used across the app (pine = confirmed/good, gold = pending/needs
-// attention, rust = cancelled/failed). COMPLETED and NO_SHOW share the
-// neutral/rust treatment since they're both "no longer actionable".
-const STATUS_STYLE: Record<Booking['status'], string> = {
-  PENDING: 'bg-gold-bg text-gold-dark',
-  CONFIRMED: 'bg-pine-bg text-pine-dark',
-  CANCELLED: 'bg-rust-bg text-rust-dark',
-  COMPLETED: 'bg-line text-ink-600',
-  NO_SHOW: 'bg-rust-bg text-rust-dark',
-};
-
-// Left border on each row repeats the status color so a long list can be
-// scanned by color alone, without reading the badge text. PENDING also
-// gets a tinted row background: it's the only state that needs action.
-const STATUS_ROW: Record<Booking['status'], string> = {
-  PENDING: 'border-l-gold bg-gold-bg/40',
-  CONFIRMED: 'border-l-pine bg-surface',
-  CANCELLED: 'border-l-rust bg-surface',
-  COMPLETED: 'border-l-ink-400 bg-surface',
-  NO_SHOW: 'border-l-rust bg-surface',
-};
-
-const STATUS_ICON: Record<Booking['status'], string> = {
-  PENDING: '⏱',
-  CONFIRMED: '✓',
-  CANCELLED: '✕',
-  COMPLETED: '✓',
-  NO_SHOW: '!',
-};
 
 const searchInputClass =
   'w-full max-w-xs rounded-md border border-line bg-surface px-3 py-1.5 text-sm placeholder:text-ink-400 focus-visible:border-pine';
@@ -111,7 +82,7 @@ export default function DashboardPage() {
       setBookings((await res.json()) as Booking[]);
       setBookingsError(null);
     } catch (err) {
-      setBookingsError(err instanceof Error ? err.message : 'No se pudo refrescar la lista.');
+      setBookingsError(err instanceof Error ? err.message : 'Could not refresh the list.');
     }
   }, []);
 
@@ -167,13 +138,13 @@ export default function DashboardPage() {
         id,
         message:
           apiMessage ??
-          `No se pudo ${action === 'confirm' ? 'confirmar' : 'cancelar'} (${res.status}).`,
+          `Could not ${action === 'confirm' ? 'confirm' : 'cancel'} this booking (${res.status}).`,
       });
       await refreshBookings();
     } catch (err) {
       setRowError({
         id,
-        message: err instanceof Error ? err.message : 'Error de red — intentá de nuevo.',
+        message: err instanceof Error ? err.message : 'Network error — please try again.',
       });
     } finally {
       setActioningId(null);
@@ -181,7 +152,7 @@ export default function DashboardPage() {
   }
 
   if (isLoading || !isAuthenticated) {
-    return <main className="p-8 text-sm text-ink-600">Cargando…</main>;
+    return <main className="p-8 text-sm text-ink-600">Loading…</main>;
   }
 
   return (
@@ -199,26 +170,26 @@ export default function DashboardPage() {
 
       {error && (
         <p role="alert" className="mb-4 rounded bg-rust-bg px-3 py-2 text-sm text-rust-dark">
-          Error consultando la API: {error}
+          Could not load branches: {error}
         </p>
       )}
 
-      {branches === null && !error && <p className="text-sm text-ink-600">Cargando sucursales…</p>}
+      {branches === null && !error && <p className="text-sm text-ink-600">Loading branches…</p>}
 
       {branches !== null && (
         <section className="mb-10">
           <div className="mb-3 flex flex-wrap items-end justify-between gap-3">
-            <h2 className="text-sm font-medium text-ink-600">
-              Sucursales ({branchPage.total}
-              {branchPage.query ? ` de ${branches.length}` : ''})
+            <h2 className="font-display text-lg font-semibold text-ink">
+              Branches ({branchPage.total}
+              {branchPage.query ? ` of ${branches.length}` : ''})
             </h2>
             {branches.length > 8 && (
               <input
                 type="search"
                 value={branchPage.query}
                 onChange={(e) => branchPage.onQueryChange(e.target.value)}
-                aria-label="Buscar sucursal"
-                placeholder="Buscar sucursal…"
+                aria-label="Search branches"
+                placeholder="Search branches…"
                 className={searchInputClass}
               />
             )}
@@ -234,7 +205,7 @@ export default function DashboardPage() {
                     <p className="font-medium text-ink">{b.name}</p>
                     <p className="text-sm text-ink-600">{b.timezone}</p>
                   </span>
-                  <span className="text-sm font-medium text-pine">Reservar</span>
+                  <span className="text-sm font-medium text-pine">Book</span>
                 </Link>
               </li>
             ))}
@@ -245,12 +216,12 @@ export default function DashboardPage() {
               onClick={branchPage.showMore}
               className="mt-3 w-full rounded-md border border-line py-2 text-sm font-medium text-ink-600 hover:bg-surface"
             >
-              Ver más ({branchPage.remaining} restantes)
+              Show more ({branchPage.remaining} left)
             </button>
           )}
           {branches.length === 0 && (
             <p className="text-sm text-ink-600">
-              Sin sucursales todavía para este tenant.
+              No branches yet for this business.
             </p>
           )}
         </section>
@@ -259,17 +230,17 @@ export default function DashboardPage() {
       <section>
         <div className="mb-3 flex flex-wrap items-end justify-between gap-3">
           <div>
-            <h2 className="text-sm font-medium text-ink-600">
-              Reservas{bookings !== null ? ` (${bookingPage.total})` : ''}
+            <h2 className="font-display text-lg font-semibold text-ink">
+              Bookings{bookings !== null ? ` (${bookingPage.total})` : ''}
             </h2>
             {canOperate && (
               <p className="mt-0.5 text-xs text-ink-400">
-                Las pendientes van primero. Solo admin y staff aceptan o rechazan.
+                Pending bookings come first. Only admins and staff can accept or reject them.
               </p>
             )}
             {isClient && (
               <p className="mt-0.5 text-xs text-ink-400">
-                Pediste el turno. El local lo confirma; vos no ves ese botón.
+                You requested these appointments. The business confirms them.
               </p>
             )}
           </div>
@@ -278,8 +249,8 @@ export default function DashboardPage() {
               type="search"
               value={bookingPage.query}
               onChange={(e) => bookingPage.onQueryChange(e.target.value)}
-              aria-label="Buscar reserva"
-              placeholder="Buscar reserva…"
+              aria-label="Search bookings"
+              placeholder="Search bookings…"
               className={searchInputClass}
             />
           )}
@@ -287,19 +258,19 @@ export default function DashboardPage() {
 
         {bookingsError && (
           <p role="alert" className="rounded bg-rust-bg px-3 py-2 text-sm text-rust-dark">
-            Error consultando reservas: {bookingsError}
+            Could not load bookings: {bookingsError}
           </p>
         )}
 
         {bookings === null && !bookingsError && (
-          <p className="text-sm text-ink-600">Cargando reservas…</p>
+          <p className="text-sm text-ink-600">Loading bookings…</p>
         )}
 
         {bookings !== null && bookings.length === 0 && !bookingsError && (
           <p className="text-sm text-ink-600">
-            Sin reservas todavía —{' '}
+            No bookings yet —{' '}
             <Link href="/book" className="font-medium text-pine underline underline-offset-2">
-              creá la primera
+              create the first one
             </Link>
             .
           </p>
@@ -319,17 +290,17 @@ export default function DashboardPage() {
                       {b.branch?.name ?? b.branchId} · {b.staff?.user.email ?? b.staffId}
                     </p>
                     {canOperate && b.client?.email && (
-                      <p className="text-ink-600">Cliente: {b.client.email}</p>
+                      <p className="text-ink-600">Client: {b.client.email}</p>
                     )}
-                    <p className="text-ink-600">{new Date(b.startTime).toLocaleString()}</p>
+                    <p className="text-ink-600">{formatDateTime(b.startTime)}</p>
                   </div>
 
                   <div className="flex shrink-0 flex-col items-start gap-1.5 sm:items-end">
                     <span
-                      className={`inline-flex items-center gap-1 rounded px-2 py-0.5 text-xs font-semibold ${STATUS_STYLE[b.status]}`}
+                      className={`inline-flex items-center gap-1 rounded px-2 py-0.5 text-xs font-semibold ${STATUS_BADGE[b.status]}`}
                     >
                       <span aria-hidden="true">{STATUS_ICON[b.status]}</span>
-                      {b.status}
+                      {STATUS_LABEL[b.status]}
                     </span>
 
                     {canOperate && b.status === 'PENDING' && (
@@ -340,7 +311,7 @@ export default function DashboardPage() {
                           disabled={actioningId !== null}
                           className={`${actionButtonClass} border-pine text-pine hover:bg-pine-bg`}
                         >
-                          {actioningId === b.id ? '…' : 'Aceptar'}
+                          {actioningId === b.id ? '…' : 'Accept'}
                         </button>
                         <button
                           type="button"
@@ -348,7 +319,7 @@ export default function DashboardPage() {
                           disabled={actioningId !== null}
                           className={`${actionButtonClass} border-rust text-rust hover:bg-rust-bg`}
                         >
-                          {actioningId === b.id ? '…' : 'Rechazar'}
+                          {actioningId === b.id ? '…' : 'Reject'}
                         </button>
                       </div>
                     )}
@@ -360,7 +331,7 @@ export default function DashboardPage() {
                         disabled={actioningId !== null}
                         className={`${actionButtonClass} border-rust text-rust hover:bg-rust-bg`}
                       >
-                        {actioningId === b.id ? '…' : 'Cancelar solicitud'}
+                        {actioningId === b.id ? '…' : 'Cancel request'}
                       </button>
                     )}
 
@@ -379,7 +350,7 @@ export default function DashboardPage() {
                 onClick={bookingPage.showMore}
                 className="mt-3 w-full rounded-md border border-line py-2 text-sm font-medium text-ink-600 hover:bg-surface"
               >
-                Ver más ({bookingPage.remaining} restantes)
+                Show more ({bookingPage.remaining} left)
               </button>
             )}
           </>

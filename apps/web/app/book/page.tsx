@@ -6,6 +6,10 @@ import Link from 'next/link';
 import { useAuth } from '../../lib/auth-context';
 import { apiFetch } from '../../lib/api-client';
 import { Header } from '../../components/Header';
+import { STATUS_LABEL } from '../../components/status-style';
+import { formatDate, formatTime, formatTimeRange } from '../../lib/format-date';
+import { formatDuration } from '../../lib/format-time';
+import { formatPrice } from '../../lib/format-money';
 import type {
   Branch,
   Service,
@@ -17,8 +21,8 @@ import type {
 
 type Step = 'branch' | 'service' | 'staff' | 'slot' | 'confirm' | 'done';
 
-// P0 — back navigation. `done` has no "back" (its own "Hacer otra
-// reserva" / "Volver al dashboard" buttons cover that); `branch` has no
+// P0 — back navigation. `done` has no "back" (its own "Make another
+// booking" / "Back to dashboard" buttons cover that); `branch` has no
 // back either (it's the first real step — Header's Dashboard link is
 // "leave the wizard entirely", a back button here would be redundant).
 const PREVIOUS_STEP: Partial<Record<Step, Step>> = {
@@ -29,12 +33,12 @@ const PREVIOUS_STEP: Partial<Record<Step, Step>> = {
 };
 
 const STEP_LABEL: Record<Step, string> = {
-  branch: 'Sucursal',
-  service: 'Servicio',
-  staff: 'Con quién',
-  slot: 'Horario',
-  confirm: 'Confirmar',
-  done: 'Listo',
+  branch: 'Branch',
+  service: 'Service',
+  staff: 'Staff',
+  slot: 'Time',
+  confirm: 'Confirm',
+  done: 'Done',
 };
 
 // The wizard's steps in display order — this IS a genuine sequence (each
@@ -48,7 +52,7 @@ function StepProgress({ step }: { step: Step }) {
   const currentIndex = WIZARD_STEPS.indexOf(step);
 
   return (
-    <ol aria-label="Pasos de la reserva" className="mb-6 flex items-center gap-2">
+    <ol aria-label="Booking steps" className="mb-6 flex items-center gap-2">
       {WIZARD_STEPS.map((s, i) => {
         const state = i < currentIndex ? 'done' : i === currentIndex ? 'current' : 'upcoming';
         return (
@@ -103,10 +107,12 @@ function todayAsDateString(): string {
   return `${year}-${month}-${day}`;
 }
 
-function formatPrice(price: string | number): string {
-  const n = typeof price === 'string' ? Number(price) : price;
-  if (Number.isNaN(n)) return String(price);
-  return `$${n.toLocaleString('es')}`;
+// A slot's endUtc includes the service's buffer (cleanup time the staff
+// keeps free after it). The client's appointment ends at start + duration,
+// which is what the confirm summary shows next to "Duration".
+function appointmentEnd(slot: AvailabilitySlot, service: Service | null): string {
+  if (!service) return slot.endUtc;
+  return new Date(new Date(slot.startUtc).getTime() + service.durationMinutes * 60_000).toISOString();
 }
 
 const listItemClass =
@@ -307,7 +313,7 @@ function BookPageContent() {
       // and submitting — the exact race the exclusion constraint exists
       // to resolve. Refresh availability so the now-stale slot disappears
       // and the person can pick a different one, instead of a dead end.
-      setError('Ese horario acaba de ser tomado por otra persona. Elegí otro horario disponible.');
+      setError('Someone else just took that time. Please pick another available time.');
       setSelectedSlot(null);
       setStep('slot');
       loadAvailability(selectedStaff.id, date);
@@ -315,7 +321,7 @@ function BookPageContent() {
     }
 
     const body = (await res.json().catch(() => ({}))) as { message?: string };
-    setError(body.message ?? `No se pudo crear la reserva (${res.status}).`);
+    setError(body.message ?? `Could not create the booking (${res.status}).`);
   }
 
   function reset() {
@@ -330,7 +336,7 @@ function BookPageContent() {
   }
 
   if (isLoading || !isAuthenticated) {
-    return <main className="p-8 text-sm text-ink-600">Cargando…</main>;
+    return <main className="p-8 text-sm text-ink-600">Loading…</main>;
   }
 
   const q = branchQuery.trim().toLowerCase();
@@ -345,7 +351,7 @@ function BookPageContent() {
       <Header />
 
       <div className="mb-4 flex items-center justify-between">
-        <h1 className="font-display text-xl font-semibold text-ink">Nueva reserva</h1>
+        <h1 className="font-display text-xl font-semibold text-ink">New booking</h1>
         {/* P0 — was completely absent: no way back to a previous step, no
             way out except the browser's own back button. */}
         {PREVIOUS_STEP[step] && (
@@ -353,7 +359,7 @@ function BookPageContent() {
             onClick={goBack}
             className="text-sm font-medium text-ink-600 underline underline-offset-2 hover:text-ink"
           >
-            ← Atrás
+            ← Back
           </button>
         )}
       </div>
@@ -391,8 +397,8 @@ function BookPageContent() {
                 setBranchQuery(e.target.value);
                 setBranchVisible(8);
               }}
-              aria-label="Buscar sucursal"
-              placeholder="Buscar sucursal…"
+              aria-label="Search branches"
+              placeholder="Search branches…"
               className="mb-3 w-full rounded-md border border-line bg-surface px-3 py-1.5 text-sm placeholder:text-ink-400 focus-visible:border-pine"
             />
           )}
@@ -404,7 +410,7 @@ function BookPageContent() {
                 </button>
               </li>
             ))}
-            {branches.length === 0 && <p className="text-sm text-ink-600">Cargando…</p>}
+            {branches.length === 0 && <p className="text-sm text-ink-600">Loading…</p>}
           </ul>
           {branchRemaining > 0 && (
             <button
@@ -412,7 +418,7 @@ function BookPageContent() {
               onClick={() => setBranchVisible((n) => n + 8)}
               className="mt-3 w-full rounded-md border border-line py-2 text-sm font-medium text-ink-600 hover:bg-surface"
             >
-              Ver más ({branchRemaining} restantes)
+              Show more ({branchRemaining} left)
             </button>
           )}
         </section>
@@ -429,13 +435,13 @@ function BookPageContent() {
                 <button onClick={() => chooseService(s)} className={listItemClass}>
                   <p className="text-ink">{s.name}</p>
                   <p className="text-sm text-ink-600">
-                    {s.durationMinutes} min · {formatPrice(s.price)}
+                    {formatDuration(s.durationMinutes)} · {formatPrice(s.price)}
                   </p>
                 </button>
               </li>
             ))}
             {services.length === 0 && (
-              <p className="text-sm text-ink-600">Esta sucursal no tiene servicios todavía.</p>
+              <p className="text-sm text-ink-600">This branch has no services yet.</p>
             )}
           </ul>
         </section>
@@ -456,7 +462,7 @@ function BookPageContent() {
             ))}
             {staffList.length === 0 && (
               <p className="text-sm text-ink-600">
-                Nadie en esta sucursal está calificado para este servicio todavía.
+                No one at this branch offers this service yet.
               </p>
             )}
           </ul>
@@ -469,7 +475,7 @@ function BookPageContent() {
             {STEP_LABEL.slot}
           </h2>
           <label htmlFor="booking-date" className="mb-1 block text-sm font-medium text-ink-600">
-            Fecha
+            Date
           </label>
           <input
             id="booking-date"
@@ -479,12 +485,12 @@ function BookPageContent() {
             className="mb-4 rounded border border-line bg-surface px-3 py-2 text-ink focus-visible:border-pine"
           />
 
-          {availability === null && <p className="text-sm text-ink-600">Cargando horarios…</p>}
+          {availability === null && <p className="text-sm text-ink-600">Loading times…</p>}
 
           {availability !== null && (
             <>
               {availability.slots.length === 0 && (
-                <p className="text-sm text-ink-600">Sin horarios disponibles este día.</p>
+                <p className="text-sm text-ink-600">No times available on this day.</p>
               )}
               <div className="grid grid-cols-3 gap-2">
                 {availability.slots.map((slot) => (
@@ -493,7 +499,7 @@ function BookPageContent() {
                     onClick={() => chooseSlot(slot)}
                     className="rounded border border-line bg-surface px-3 py-2 text-sm font-medium text-ink transition-colors hover:border-pine hover:bg-pine-bg"
                   >
-                    {slot.startLocal}
+                    {formatTime(slot.startUtc, availability.timezone)}
                   </button>
                 ))}
               </div>
@@ -507,30 +513,49 @@ function BookPageContent() {
           <h2 ref={stepHeadingRef} tabIndex={-1} className="mb-2 font-medium text-ink">
             {STEP_LABEL.confirm}
           </h2>
-          <div className="mb-4 space-y-1 rounded border border-line bg-surface p-4 text-sm shadow-panel">
-            <p>
-              <span className="text-ink-600">Sucursal:</span> {selectedBranch?.name}
-            </p>
-            <p>
-              <span className="text-ink-600">Servicio:</span> {selectedService?.name}
-            </p>
-            <p>
-              <span className="text-ink-600">Con:</span> {selectedStaff?.user.email}
-            </p>
-            <p>
-              <span className="text-ink-600">Fecha:</span> {date}
-            </p>
-            <p>
-              <span className="text-ink-600">Horario:</span> {selectedSlot.startLocal} -{' '}
-              {selectedSlot.endLocal}
-            </p>
+          {/* What is being booked (service, price) leads; when and where
+              follow as a label/value list. */}
+          <div className="mb-4 rounded border border-line bg-surface p-5 text-sm shadow-panel">
+            {selectedService && (
+              <div className="flex items-start justify-between gap-4 border-b border-line pb-4">
+                <p className="font-display text-lg font-semibold text-ink">{selectedService.name}</p>
+                <p className="font-display text-lg font-semibold tabular-nums text-ink">
+                  <span className="sr-only">Price: </span>
+                  {formatPrice(selectedService.price)}
+                </p>
+              </div>
+            )}
+            <dl className="mt-4 grid grid-cols-[5.5rem_1fr] gap-x-4 gap-y-2">
+              <dt className="text-ink-600">Date</dt>
+              <dd className="font-medium text-ink">
+                {formatDate(selectedSlot.startUtc, selectedBranch?.timezone)}
+              </dd>
+              <dt className="text-ink-600">Time</dt>
+              <dd className="font-medium text-ink">
+                {formatTimeRange(
+                  selectedSlot.startUtc,
+                  appointmentEnd(selectedSlot, selectedService),
+                  selectedBranch?.timezone,
+                )}
+              </dd>
+              {selectedService && (
+                <>
+                  <dt className="text-ink-600">Duration</dt>
+                  <dd className="text-ink">{formatDuration(selectedService.durationMinutes)}</dd>
+                </>
+              )}
+              <dt className="text-ink-600">Branch</dt>
+              <dd className="text-ink">{selectedBranch?.name}</dd>
+              <dt className="text-ink-600">With</dt>
+              <dd className="text-ink">{selectedStaff?.user.email}</dd>
+            </dl>
           </div>
           <button
             onClick={confirmBooking}
             disabled={submitting}
             className="w-full rounded bg-pine py-2.5 font-medium text-white transition-colors hover:bg-pine-dark disabled:cursor-not-allowed disabled:opacity-50"
           >
-            {submitting ? 'Reservando…' : 'Confirmar reserva'}
+            {submitting ? 'Booking…' : 'Confirm booking'}
           </button>
         </section>
       )}
@@ -538,25 +563,25 @@ function BookPageContent() {
       {step === 'done' && createdBooking && (
         <section className="rounded border border-pine bg-pine-bg p-4">
           <h2 ref={stepHeadingRef} tabIndex={-1} className="font-medium text-pine-dark">
-            Reserva creada — estado: {createdBooking.status}
+            Booking created — status: {STATUS_LABEL[createdBooking.status]}
           </h2>
           <p className="mt-1 text-sm text-pine-dark">
             {user?.role === 'CLIENT'
-              ? 'Quedó pendiente. El admin o el staff del local la aceptan o la rechazan; vos no podés confirmarla.'
-              : 'Quedó pendiente. Cerrá sesión, o usá otra cuenta admin/staff, y aceptala desde el Dashboard — no desde este wizard.'}
+              ? 'It is pending. An admin or staff member of the business will accept or reject it.'
+              : 'It is pending. Accept it from the Dashboard, not from this wizard.'}
           </p>
           <div className="mt-4 flex gap-4">
             <button
               onClick={reset}
               className="text-sm font-medium text-pine-dark underline underline-offset-2"
             >
-              Hacer otra reserva
+              Make another booking
             </button>
             <Link
               href="/dashboard"
               className="text-sm font-medium text-pine-dark underline underline-offset-2"
             >
-              Volver al dashboard
+              Back to dashboard
             </Link>
           </div>
         </section>
@@ -570,11 +595,11 @@ function BookPageContent() {
 // as a page's default export in App Router — without this, `next build`
 // either fails or silently de-opts the whole route to client-only
 // rendering with a build warning. The fallback is intentionally the same
-// "Cargando…" used elsewhere for the auth-check loading state, so there
+// "Loading…" used elsewhere for the auth-check loading state, so there
 // is no visible difference to the brief Suspense flash.
 export default function BookPage() {
   return (
-    <Suspense fallback={<main className="p-8 text-sm text-ink-600">Cargando…</main>}>
+    <Suspense fallback={<main className="p-8 text-sm text-ink-600">Loading…</main>}>
       <BookPageContent />
     </Suspense>
   );

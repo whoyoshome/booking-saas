@@ -34,7 +34,7 @@ describe('POST /ai/assist (e2e)', () => {
 
     const loginAdmin = await request(app.getHttpServer())
       .post('/auth/login')
-      .send({ email: 'admin@tenant.dev', password: 'ChangeMe123!', tenantSlug: 'tenant-a' })
+      .send({ email: 'admin@tenant.dev', password: 'ChangeMe123!', tenantSlug: 'e2e-tenant-a' })
       .expect(200);
     tenantAdminToken = loginAdmin.body.accessToken;
 
@@ -42,7 +42,7 @@ describe('POST /ai/assist (e2e)', () => {
     // bookings.e2e-spec.ts's isolation test does — no CLIENT registration
     // endpoint exists yet.
     const prisma = moduleRef.get(PrismaService);
-    const tenantA = await prisma.tenant.findUniqueOrThrow({ where: { slug: 'tenant-a' } });
+    const tenantA = await prisma.tenant.findUniqueOrThrow({ where: { slug: 'e2e-tenant-a' } });
     const clientEmail = `ai-assist-client-${Date.now()}@tenant-a.dev`;
     await prisma.$transaction(async (tx) => {
       await tx.$executeRaw`SELECT set_config('app.is_super_admin', 'true', true)`;
@@ -58,7 +58,7 @@ describe('POST /ai/assist (e2e)', () => {
 
     const loginClient = await request(app.getHttpServer())
       .post('/auth/login')
-      .send({ email: clientEmail, password: 'ChangeMe123!', tenantSlug: 'tenant-a' })
+      .send({ email: clientEmail, password: 'ChangeMe123!', tenantSlug: 'e2e-tenant-a' })
       .expect(200);
     clientToken = loginClient.body.accessToken;
   });

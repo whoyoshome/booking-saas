@@ -7,15 +7,15 @@ import { useAuth } from '../../lib/auth-context';
 const CUSTOM_OPTION = '__custom__';
 
 // P2 — known demo tenants as a select, instead of a raw text input asking
-// a recruiter to type a slug they have no way of knowing. "Otro" keeps
+// a recruiter to type a slug they have no way of knowing. "Other" keeps
 // the raw-text path available (not removed, just no longer the default),
 // since a real multi-tenant product will always have more tenants than
 // two hardcoded ones.
 const DEMO_OPTIONS = [
-  { value: '', label: 'Super admin (sin tenant)' },
-  { value: 'tenant-a', label: 'Tenant A — Demo Clínica' },
-  { value: 'tenant-b', label: 'Tenant B — Demo Salón' },
-  { value: CUSTOM_OPTION, label: 'Otro (escribir slug manualmente)' },
+  { value: '', label: 'Super admin (no business)' },
+  { value: 'tenant-a', label: 'Business A — Demo Clinic' },
+  { value: 'tenant-b', label: 'Business B — Demo Salon' },
+  { value: CUSTOM_OPTION, label: 'Other (enter slug manually)' },
 ];
 
 function FieldLabel({ htmlFor, children }: { htmlFor: string; children: React.ReactNode }) {
@@ -75,12 +75,12 @@ function LoginPageContent() {
             Booking<span className="text-pine">SaaS</span>
           </h1>
           <p className="mt-1 text-sm text-ink-600">
-            El cliente pide el turno. El admin o el staff lo aceptan o lo rechazan.
+            Clients request an appointment. An admin or staff member accepts or rejects it.
           </p>
         </div>
 
         <div className="space-y-1">
-          <FieldLabel htmlFor="tenantOption">Tenant</FieldLabel>
+          <FieldLabel htmlFor="tenantOption">Business</FieldLabel>
           <select
             id="tenantOption"
             value={tenantOption}
@@ -97,13 +97,13 @@ function LoginPageContent() {
 
         {tenantOption === CUSTOM_OPTION && (
           <div className="space-y-1">
-            <FieldLabel htmlFor="customSlug">Tenant slug</FieldLabel>
+            <FieldLabel htmlFor="customSlug">Business slug</FieldLabel>
             <input
               id="customSlug"
               type="text"
               value={customSlug}
               onChange={(e) => setCustomSlug(e.target.value)}
-              placeholder="mi-tenant"
+              placeholder="my-business"
               className={inputClass}
             />
           </div>
@@ -126,14 +126,14 @@ function LoginPageContent() {
                 onClick={() => setEmail('cliente@tenant.dev')}
                 className="text-xs font-medium text-pine underline underline-offset-2"
               >
-                Cuenta cliente
+                Client account
               </button>
               <button
                 type="button"
                 onClick={() => setEmail('admin@tenant.dev')}
                 className="text-xs font-medium text-pine underline underline-offset-2"
               >
-                Cuenta admin
+                Admin account
               </button>
             </div>
           )}
@@ -162,7 +162,7 @@ function LoginPageContent() {
           disabled={submitting}
           className="w-full rounded bg-pine py-2.5 font-medium text-white transition-colors hover:bg-pine-dark disabled:cursor-not-allowed disabled:opacity-50"
         >
-          {submitting ? 'Ingresando…' : 'Ingresar'}
+          {submitting ? 'Signing in…' : 'Sign in'}
         </button>
       </form>
     </main>
@@ -171,7 +171,7 @@ function LoginPageContent() {
 
 export default function LoginPage() {
   return (
-    <Suspense fallback={<main className="p-8 text-sm text-ink-600">Cargando…</main>}>
+    <Suspense fallback={<main className="p-8 text-sm text-ink-600">Loading…</main>}>
       <LoginPageContent />
     </Suspense>
   );

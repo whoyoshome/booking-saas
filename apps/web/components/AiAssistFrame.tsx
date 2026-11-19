@@ -9,9 +9,9 @@ import type { ReactNode } from 'react';
 export function AiAssistFrame({ children }: { children: ReactNode }) {
   return (
     <section className="mb-8 rounded-lg border p-4">
-      <h2 className="mb-1 text-sm font-medium text-ink-600">Asistente (beta)</h2>
+      <h2 className="mb-1 text-sm font-medium text-ink-600">Assistant (beta)</h2>
       <p className="mb-3 text-xs text-ink-400">
-        Responde solo con las reservas PENDING de este tenant — nunca crea, confirma ni cancela nada.
+        Answers only from the pending bookings of this business. It never creates, confirms or cancels anything.
       </p>
       {children}
     </section>

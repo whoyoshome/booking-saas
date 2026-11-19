@@ -14,18 +14,18 @@ The first request after idle can take ~30–50 seconds (hosted API spins down). 
 
 Password for all accounts: `ChangeMe123!`
 
-| Role | Email | Login → Tenant |
+| Role | Email | Login → Business |
 |------|--------|----------------|
-| Client (requests a booking) | `cliente@tenant.dev` | Tenant A or B |
-| Tenant admin (accepts / rejects) | `admin@tenant.dev` | Tenant A — Demo Clínica / Tenant B — Demo Salón |
-| Staff | `ana@tenant-a.dev` / `carlos@tenant-b.dev` | Tenant A / Tenant B |
+| Client (requests a booking) | `cliente@tenant.dev` | Business A or B |
+| Tenant admin (accepts / rejects) | `admin@tenant.dev` | Business A — Demo Clinic / Business B — Demo Salon |
+| Staff | `ana@tenant-a.dev` / `carlos@tenant-b.dev` | Business A / Business B |
 | Platform admin | `admin@bookingsaas.dev` | Super admin |
 
-Walkthrough: login as **cliente** → Tenant A → **Sucursal Centro** → New booking → weekday slot. Then logout and login as **admin** of the same tenant: pending rows are at the top → Aceptar or Rechazar. Tenant B has a different catalog and timezone (`America/Mexico_City`).
+Walkthrough: login as **cliente** → Business A → **Downtown Branch** → New booking → weekday slot. Then sign out and sign in as **admin** of the same business: pending rows are at the top → Accept or Reject. Business B has a different catalog and timezone (`America/Mexico_City`).
 
 ## Alerts center
 
-`/alerts` (tenant admin and staff only) shows which bookings need a decision now: priority KPIs, status filters and a list sorted by urgency. Sign in as **admin** → **Alertas** → **Demo** for a self-contained dataset; **Datos reales** shows the tenant's own bookings.
+`/alerts` (tenant admin and staff only) shows which bookings need a decision now: priority KPIs, status filters and a list sorted by urgency. Sign in as **admin** → **Alerts** → **Demo** for a self-contained dataset; **Live data** shows the tenant's own bookings.
 
 The API has no severity field, so priority is derived client-side by pure, tested functions in [`apps/web/lib/alerts.ts`](apps/web/lib/alerts.ts):
 
@@ -41,6 +41,20 @@ Design notes:
 - Priority is conveyed by shape and label as well as color.
 - Demo data is generated relative to the current time instead of seeded, because the API cancels `PENDING` bookings after 10 minutes.
 - That 10-minute TTL is mirrored in the web app; a unit test reads the API source and fails if the two values diverge.
+
+## Screenshots
+
+Captured at 1280 px from a freshly seeded database by [`apps/web/scripts/screenshots.mjs`](apps/web/scripts/screenshots.mjs).
+
+| Login | Dashboard (admin) |
+|---|---|
+| ![Login](docs/screenshots/login.png) | ![Dashboard](docs/screenshots/dashboard.png) |
+
+| Alerts center (Demo) | New booking — 5. Confirm |
+|---|---|
+| ![Alerts center in demo mode](docs/screenshots/alerts-demo.png) | ![Booking confirmation](docs/screenshots/book-5-confirm.png) |
+
+New booking, steps 1–4: [Branch](docs/screenshots/book-1-branch.png) · [Service](docs/screenshots/book-2-service.png) · [Staff](docs/screenshots/book-3-staff.png) · [Time](docs/screenshots/book-4-time.png)
 
 ## Architecture
 
@@ -122,6 +136,8 @@ With the stack up and the database migrated and seeded (see [Run locally](#run-l
 ```bash
 docker compose exec api npm run test:e2e
 ```
+
+The suite logs in to its own tenants (`e2e-tenant-a`, `e2e-tenant-b`, created by `npm run seed`), so the branches and bookings it leaves behind never appear in the demo tenants.
 
 ### Browser tests (Playwright) with Docker
 

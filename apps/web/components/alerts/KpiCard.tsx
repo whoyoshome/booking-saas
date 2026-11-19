@@ -9,7 +9,7 @@ interface KpiCardProps {
   emphasized?: boolean;
 }
 
-// Rendered as an <li>: the page wraps the tiles in a <ul aria-label="Resumen">.
+// Rendered as an <li>: the page wraps the tiles in a <ul aria-label="Summary">.
 export function KpiCard({ label, value, priority, emphasized = false }: KpiCardProps) {
   return (
     <li className={`rounded-lg border p-3 ${emphasized ? KPI_ON[priority] : KPI_OFF}`}>

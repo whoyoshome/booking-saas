@@ -40,22 +40,22 @@ interface DemoTenantSpec {
 const DEMO_TENANTS: DemoTenantSpec[] = [
   {
     slug: 'tenant-a',
-    branchName: 'Sucursal Centro',
+    branchName: 'Downtown Branch',
     branchTimezone: 'America/Bogota',
-    serviceName: 'Corte de cabello',
+    serviceName: 'Haircut',
     durationMinutes: 30,
     bufferMinutes: 10,
-    price: 25000,
+    price: 35,
     staffEmail: 'ana@tenant-a.dev',
   },
   {
     slug: 'tenant-b',
-    branchName: 'Sucursal Reforma',
+    branchName: 'Riverside Branch',
     branchTimezone: 'America/Mexico_City',
-    serviceName: 'Consulta general',
+    serviceName: 'General consultation',
     durationMinutes: 45,
     bufferMinutes: 15,
-    price: 45000,
+    price: 60,
     staffEmail: 'carlos@tenant-b.dev',
   },
 ];

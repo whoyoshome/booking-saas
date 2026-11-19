@@ -25,34 +25,34 @@ beforeEach(() => {
   mocks.role = 'TENANT_ADMIN';
 });
 
-describe('Header — Alertas link', () => {
+describe('Header — Alerts link', () => {
   it.each(['TENANT_ADMIN', 'STAFF'] as const)('is shown to %s', (role) => {
     mocks.role = role;
     render(<Header />);
 
-    expect(screen.getByRole('link', { name: 'Alertas' })).toHaveAttribute('href', '/alerts');
+    expect(screen.getByRole('link', { name: 'Alerts' })).toHaveAttribute('href', '/alerts');
   });
 
   it.each(['CLIENT', 'SUPER_ADMIN'] as const)('is hidden from %s', (role) => {
     mocks.role = role;
     render(<Header />);
 
-    expect(screen.queryByRole('link', { name: 'Alertas' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Alerts' })).not.toBeInTheDocument();
   });
 
   it('is hidden while the user is not known yet', () => {
     mocks.role = null;
     render(<Header />);
 
-    expect(screen.queryByRole('link', { name: 'Alertas' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Alerts' })).not.toBeInTheDocument();
   });
 });
 
 describe('Header — current page', () => {
   it.each([
     ['/dashboard', 'Dashboard'],
-    ['/alerts', 'Alertas'],
-    ['/book', 'Nueva reserva'],
+    ['/alerts', 'Alerts'],
+    ['/book', 'New booking'],
   ])('on %s only "%s" is marked as the current page', (pathname, current) => {
     mocks.pathname = pathname;
     render(<Header />);

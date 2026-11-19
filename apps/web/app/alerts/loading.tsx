@@ -1,5 +1,5 @@
 // Route-segment Suspense fallback, same role as dashboard/loading.tsx: it
-// covers "getting to the page at all"; the page's own "Cargando reservas…"
+// covers "getting to the page at all"; the page's own "Loading bookings…"
 // covers "the page is here, its data isn't yet".
 function SkeletonTile() {
   return <li className="h-20 animate-pulse rounded-lg border border-line bg-line" />;

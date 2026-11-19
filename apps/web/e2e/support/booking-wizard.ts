@@ -1,5 +1,6 @@
 import { expect, type APIRequestContext, type Page } from '@playwright/test';
 import type { AvailabilityResponse } from '../../lib/types';
+import { formatTime } from '../../lib/format-date';
 import { demoBranchId } from './api';
 
 function isWeekend(d: Date): boolean {
@@ -20,14 +21,19 @@ function toDateInput(d: Date): string {
     .join('-');
 }
 
-/** Opens /book through the dashboard's deep link, landing on "Servicio". */
+/** A slot button's label: its start time at the branch, e.g. "9:00 AM". */
+export function slotLabel(availability: AvailabilityResponse, index: number): string {
+  return formatTime(availability.slots[index].startUtc, availability.timezone);
+}
+
+/** Opens /book through the dashboard's deep link, landing on "Service". */
 export async function openServiceStep(page: Page, request: APIRequestContext): Promise<void> {
   await page.goto(`/book?branchId=${await demoBranchId(request)}`);
-  await expect(page.getByRole('heading', { name: 'Servicio' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Service' })).toBeVisible();
 }
 
 /**
- * On the "Horario" step, picks the first weekday from `daysAhead` on that
+ * On the "Time" step, picks the first weekday from `daysAhead` on that
  * still has free slots. Re-running the suite against the same local DB
  * fills days up, so it walks forward instead of assuming a fixed date is
  * empty. Returns the real API response the grid was rendered from.
@@ -42,12 +48,12 @@ export async function pickDateWithSlots(page: Page, daysAhead: number): Promise<
     const gridLoaded = page.waitForResponse(
       (r) => r.url().includes('/availability?') && r.url().includes(`date=${date}`),
     );
-    await page.getByLabel('Fecha').fill(date);
+    await page.getByLabel('Date').fill(date);
     const availability = (await (await gridLoaded).json()) as AvailabilityResponse;
 
     if (availability.slots.length > 0) {
       await expect(
-        page.getByRole('button', { name: availability.slots[0].startLocal, exact: true }),
+        page.getByRole('button', { name: slotLabel(availability, 0), exact: true }),
       ).toBeVisible();
       return availability;
     }
@@ -56,8 +62,8 @@ export async function pickDateWithSlots(page: Page, daysAhead: number): Promise<
 }
 
 /**
- * Drives the wizard up to the "Horario" step for the seed-demo data
- * (tenant-a: Sucursal Centro → Corte de cabello → ana@tenant-a.dev,
+ * Drives the wizard up to the "Time" step for the seed-demo data
+ * (tenant-a: Downtown Branch → Haircut → ana@tenant-a.dev,
  * Mon–Fri 09:00–17:00 America/Bogota) and picks a date with free slots.
  */
 export async function openSlotStep(
@@ -66,7 +72,7 @@ export async function openSlotStep(
   daysAhead: number,
 ): Promise<AvailabilityResponse> {
   await openServiceStep(page, request);
-  await page.getByRole('button', { name: /Corte de cabello/ }).click();
+  await page.getByRole('button', { name: /Haircut/ }).click();
 
   // Choosing staff loads today's grid first; wait for it so a late
   // response can't be mistaken for the date picked below.

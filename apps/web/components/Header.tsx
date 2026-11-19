@@ -25,7 +25,7 @@ export function Header() {
       : user?.role === 'STAFF'
         ? 'Staff'
         : user?.role === 'CLIENT'
-          ? 'Cliente'
+          ? 'Client'
           : user?.role === 'SUPER_ADMIN'
             ? 'Super admin'
             : null;
@@ -63,7 +63,7 @@ export function Header() {
                 : 'text-ink-600 hover:bg-paper hover:text-ink'
             }`}
           >
-            Alertas
+            Alerts
           </Link>
         )}
         <Link
@@ -73,7 +73,7 @@ export function Header() {
             onBook ? 'bg-pine-dark ring-2 ring-pine/30' : 'bg-pine'
           }`}
         >
-          Nueva reserva
+          New booking
         </Link>
         <button
           type="button"
@@ -83,7 +83,7 @@ export function Header() {
           }}
           className="rounded px-3 py-1.5 font-medium text-ink-600 transition-colors hover:bg-paper hover:text-ink"
         >
-          Cerrar sesión
+          Sign out
         </button>
       </nav>
     </header>

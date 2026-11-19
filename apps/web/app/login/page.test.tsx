@@ -29,7 +29,7 @@ async function fillAndSubmit(email: string, password: string) {
   const user = userEvent.setup();
   await user.type(await screen.findByLabelText('Email'), email);
   await user.type(screen.getByLabelText('Password'), password);
-  await user.click(screen.getByRole('button', { name: 'Ingresar' }));
+  await user.click(screen.getByRole('button', { name: 'Sign in' }));
 }
 
 beforeEach(() => {
@@ -45,16 +45,16 @@ afterEach(() => {
 describe('/login', () => {
   it('shows the API error message and stays on the page when credentials are rejected', async () => {
     mockApi({
-      'POST /auth/login': { status: 401, body: { message: 'Credenciales inválidas.' } },
+      'POST /auth/login': { status: 401, body: { message: 'Invalid credentials.' } },
     });
 
     renderLogin();
     await fillAndSubmit('cliente@tenant.dev', 'wrong-password');
 
-    expect(await screen.findByText('Credenciales inválidas.')).toBeInTheDocument();
+    expect(await screen.findByText('Invalid credentials.')).toBeInTheDocument();
     expect(mocks.push).not.toHaveBeenCalled();
     // The form is usable again for a second attempt.
-    expect(screen.getByRole('button', { name: 'Ingresar' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Sign in' })).toBeEnabled();
   });
 
   it('sends tenant + credentials, disables the button while waiting, then redirects to ?from', async () => {
@@ -69,7 +69,7 @@ describe('/login', () => {
     await fillAndSubmit('cliente@tenant.dev', 'ChangeMe123!');
 
     // In flight: no double submit possible.
-    expect(screen.getByRole('button', { name: 'Ingresando…' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Signing in…' })).toBeDisabled();
 
     const [, init] = fetchMock.mock.calls[0];
     expect(JSON.parse(String(init?.body))).toEqual({
@@ -80,7 +80,7 @@ describe('/login', () => {
 
     loginResponse.resolve({ status: 200, body: { accessToken: 'a', refreshToken: 'r' } });
 
-    await screen.findByRole('button', { name: 'Ingresar' });
+    await screen.findByRole('button', { name: 'Sign in' });
     expect(mocks.push).toHaveBeenCalledWith('/book');
   });
 });

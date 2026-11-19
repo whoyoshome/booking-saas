@@ -10,7 +10,7 @@ import { PrismaService } from '../src/prisma/prisma.service';
  * layer and directly against PostgreSQL.
  *
  * KNOWN COUPLING: these tests rely on the seed data from `prisma/seed.ts`
- * (tenant-a / tenant-b / admin@tenant.dev, plus the SUPER_ADMIN) instead of
+ * (e2e-tenant-a / e2e-tenant-b / admin@tenant.dev, plus the SUPER_ADMIN) instead of
  * per-suite fixtures. Run `npm run seed` before this suite.
  */
 describe('Tenant isolation (e2e)', () => {
@@ -47,7 +47,7 @@ describe('Tenant isolation (e2e)', () => {
       .send({
         email: 'admin@tenant.dev',
         password: 'ChangeMe123!',
-        tenantSlug: 'tenant-a',
+        tenantSlug: 'e2e-tenant-a',
       })
       .expect(200);
     tenantAToken = loginA.body.accessToken;
@@ -57,7 +57,7 @@ describe('Tenant isolation (e2e)', () => {
       .send({
         email: 'admin@tenant.dev',
         password: 'ChangeMe123!',
-        tenantSlug: 'tenant-b',
+        tenantSlug: 'e2e-tenant-b',
       })
       .expect(200);
     tenantBToken = loginB.body.accessToken;
@@ -72,10 +72,10 @@ describe('Tenant isolation (e2e)', () => {
     superAdminToken = loginSuper.body.accessToken;
 
     const tenantA = await prisma.tenant.findUniqueOrThrow({
-      where: { slug: 'tenant-a' },
+      where: { slug: 'e2e-tenant-a' },
     });
     const tenantB = await prisma.tenant.findUniqueOrThrow({
-      where: { slug: 'tenant-b' },
+      where: { slug: 'e2e-tenant-b' },
     });
     tenantAId = tenantA.id;
     tenantBId = tenantB.id;

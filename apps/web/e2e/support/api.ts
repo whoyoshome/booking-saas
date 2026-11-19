@@ -12,13 +12,14 @@ async function getAs<T>(request: APIRequestContext, path: string): Promise<T> {
 }
 
 /**
- * The seed-demo branch is identified by name AND timezone: the API's own
- * e2e suite also creates a "Sucursal Centro" in tenant-a (UTC, no staff),
- * so on a local DB where both suites ran, the name alone is ambiguous.
+ * The seed-demo branch is identified by name AND timezone, so a branch an
+ * admin adds by hand with the same name can't be picked by mistake. (The
+ * API's own e2e suite runs in separate e2e-tenant-a/b tenants and never
+ * touches tenant-a.)
  */
 export async function demoBranchId(request: APIRequestContext): Promise<string> {
   const branch = (await getAs<Branch[]>(request, '/branches')).find(
-    (b) => b.name === 'Sucursal Centro' && b.timezone === 'America/Bogota',
+    (b) => b.name === 'Downtown Branch' && b.timezone === 'America/Bogota',
   );
   if (!branch) throw new Error('seed-demo branch not found — run `npm run seed:demo` in apps/api.');
   return branch.id;

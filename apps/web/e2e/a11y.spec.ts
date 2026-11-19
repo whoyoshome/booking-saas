@@ -2,7 +2,7 @@ import { test, expect, type Locator, type Page } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
 import { AUTH_FILE } from './support/session';
 import { createPendingBooking } from './support/api';
-import { openServiceStep, pickDateWithSlots } from './support/booking-wizard';
+import { openServiceStep, pickDateWithSlots, slotLabel } from './support/booking-wizard';
 
 /**
  * axe-core against WCAG 2.0/2.1 A + AA, on every main screen and on each
@@ -42,26 +42,26 @@ test.describe('logged out', () => {
     // operability, the real 401 is covered in login.spec.ts. A real
     // request would also count against the 5/min login throttle.
     await page.route('**/auth/login', (route) =>
-      route.fulfill({ status: 401, json: { message: 'Credenciales inválidas.' } }),
+      route.fulfill({ status: 401, json: { message: 'Invalid credentials.' } }),
     );
     await page.goto('/login');
-    // The prerendered HTML only has the Suspense fallback ("Cargando…");
+    // The prerendered HTML only has the Suspense fallback ("Loading…");
     // the form appears after hydration, which can finish after `load`.
     // Tabbing before that leaves focus on <body>.
-    await expect(page.getByLabel('Tenant')).toBeVisible();
+    await expect(page.getByLabel('Business')).toBeVisible();
 
     // Tab order follows the visual order of the form.
     await page.keyboard.press('Tab');
-    await expectVisibleFocus(page.getByLabel('Tenant'));
+    await expectVisibleFocus(page.getByLabel('Business'));
     await page.keyboard.press('Tab');
     await expectVisibleFocus(page.getByLabel('Email'));
     await page.keyboard.press('Tab');
-    const quickFill = page.getByRole('button', { name: 'Cuenta cliente' });
+    const quickFill = page.getByRole('button', { name: 'Client account' });
     await expectVisibleFocus(quickFill);
     await page.keyboard.press('Enter');
     await expect(page.getByLabel('Email')).toHaveValue('cliente@tenant.dev');
 
-    await page.keyboard.press('Tab'); // "Cuenta admin"
+    await page.keyboard.press('Tab'); // "Admin account"
     await page.keyboard.press('Tab');
     await expectVisibleFocus(page.getByLabel('Password'));
     await page.keyboard.type('wrong-password-123');
@@ -69,7 +69,7 @@ test.describe('logged out', () => {
 
     // role="alert" makes screen readers announce it without moving focus.
     // (Next.js adds its own empty route-announcer alert, hence by text.)
-    await expect(page.getByText('Credenciales inválidas.')).toHaveAttribute('role', 'alert');
+    await expect(page.getByText('Invalid credentials.')).toHaveAttribute('role', 'alert');
     await expectNoAxeViolations(page);
   });
 });
@@ -80,8 +80,8 @@ test.describe('admin', () => {
   test('dashboard with pending bookings and the AI box has no axe violations', async ({ page, request }) => {
     await createPendingBooking(request);
     await page.goto('/dashboard');
-    await expect(page.getByRole('button', { name: 'Aceptar' }).first()).toBeVisible();
-    await expect(page.getByLabel('Pregunta para el asistente')).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Accept' }).first()).toBeVisible();
+    await expect(page.getByLabel('Question for the assistant')).toBeVisible();
     await expectNoAxeViolations(page);
   });
 
@@ -89,7 +89,7 @@ test.describe('admin', () => {
     test(`alerts center (${url}) has no axe violations`, async ({ page, request }) => {
       await createPendingBooking(request);
       await page.goto(url);
-      await expect(page.getByRole('list', { name: 'Reservas por urgencia' })).toBeVisible();
+      await expect(page.getByRole('list', { name: 'Bookings by urgency' })).toBeVisible();
       await expectNoAxeViolations(page);
     });
   }
@@ -101,14 +101,14 @@ test.describe('client', () => {
   test('dashboard has no axe violations', async ({ page, request }) => {
     await createPendingBooking(request);
     await page.goto('/dashboard');
-    await expect(page.getByRole('button', { name: 'Cancelar solicitud' }).first()).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Cancel request' }).first()).toBeVisible();
     await expectNoAxeViolations(page);
   });
 
   test('wizard branch step has no axe violations', async ({ page }) => {
     await page.goto('/book');
-    await expect(page.getByRole('heading', { name: 'Sucursal' })).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Sucursal Centro' }).first()).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Branch' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Downtown Branch' }).first()).toBeVisible();
     await expectNoAxeViolations(page);
   });
 
@@ -116,15 +116,15 @@ test.describe('client', () => {
     await openServiceStep(page, request);
 
     // After the (deep-link) auto-advance, focus lands on the step heading.
-    await expect(page.getByRole('heading', { name: 'Servicio' })).toBeFocused();
+    await expect(page.getByRole('heading', { name: 'Service' })).toBeFocused();
     await expectNoAxeViolations(page);
 
     await page.keyboard.press('Tab');
-    await expectVisibleFocus(page.getByRole('button', { name: /Corte de cabello/ }));
+    await expectVisibleFocus(page.getByRole('button', { name: /Haircut/ }));
     await page.keyboard.press('Enter');
 
     // The pressed button is gone; focus moved to the new step, not <body>.
-    await expect(page.getByRole('heading', { name: 'Con quién' })).toBeFocused();
+    await expect(page.getByRole('heading', { name: 'Staff' })).toBeFocused();
     await expectNoAxeViolations(page);
 
     await page.keyboard.press('Tab');
@@ -132,30 +132,30 @@ test.describe('client', () => {
     const todaysGrid = page.waitForResponse((r) => r.url().includes('/availability?'));
     await page.keyboard.press('Enter');
     await todaysGrid;
-    await expect(page.getByRole('heading', { name: 'Horario' })).toBeFocused();
+    await expect(page.getByRole('heading', { name: 'Time' })).toBeFocused();
 
-    const { slots } = await pickDateWithSlots(page, 42);
+    const availability = await pickDateWithSlots(page, 42);
     await expectNoAxeViolations(page);
 
     // Tab walks the native date input's own segments (month/day/year in
     // Chromium) before leaving it — browser behavior, not ours.
-    const dateInput = page.getByLabel('Fecha');
+    const dateInput = page.getByLabel('Date');
     await dateInput.focus();
     for (let i = 0; i < 5 && (await dateInput.evaluate((el) => el === document.activeElement)); i++) {
       await page.keyboard.press('Tab');
     }
-    await expectVisibleFocus(page.getByRole('button', { name: slots[0].startLocal, exact: true }));
+    await expectVisibleFocus(page.getByRole('button', { name: slotLabel(availability, 0), exact: true }));
     await page.keyboard.press('Enter');
 
-    await expect(page.getByRole('heading', { name: 'Confirmar' })).toBeFocused();
-    await expect(page.getByRole('list', { name: 'Pasos de la reserva' }).locator('[aria-current="step"]')).toContainText('Confirmar');
+    await expect(page.getByRole('heading', { name: 'Confirm' })).toBeFocused();
+    await expect(page.getByRole('list', { name: 'Booking steps' }).locator('[aria-current="step"]')).toContainText('Confirm');
     await expectNoAxeViolations(page);
 
     await page.keyboard.press('Tab');
-    await expectVisibleFocus(page.getByRole('button', { name: 'Confirmar reserva' }));
+    await expectVisibleFocus(page.getByRole('button', { name: 'Confirm booking' }));
     await page.keyboard.press('Enter');
 
-    await expect(page.getByRole('heading', { name: /Reserva creada/ })).toBeFocused();
+    await expect(page.getByRole('heading', { name: /Booking created/ })).toBeFocused();
     await expectNoAxeViolations(page);
   });
 });

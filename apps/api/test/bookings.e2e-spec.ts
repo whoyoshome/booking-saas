@@ -38,7 +38,7 @@ describe('Bookings (e2e)', () => {
 
     const loginA = await request(app.getHttpServer())
       .post('/auth/login')
-      .send({ email: 'admin@tenant.dev', password: 'ChangeMe123!', tenantSlug: 'tenant-a' })
+      .send({ email: 'admin@tenant.dev', password: 'ChangeMe123!', tenantSlug: 'e2e-tenant-a' })
       .expect(200);
     tenantAToken = loginA.body.accessToken;
 
@@ -241,7 +241,7 @@ describe('Bookings (e2e)', () => {
   it('a CLIENT only sees their own bookings in GET /bookings, even within the same tenant', async () => {
     const prisma = moduleRef.get(PrismaService);
     const passwordHash = await argon2.hash('ClientPass123!', { type: argon2.argon2id });
-    const tenantA = await prisma.tenant.findUniqueOrThrow({ where: { slug: 'tenant-a' } });
+    const tenantA = await prisma.tenant.findUniqueOrThrow({ where: { slug: 'e2e-tenant-a' } });
 
     const clientA = await prisma.$transaction(async (tx) => {
       await tx.$executeRaw`SELECT set_config('app.is_super_admin', 'true', true)`;
@@ -268,11 +268,11 @@ describe('Bookings (e2e)', () => {
 
     const loginClientA = await request(app.getHttpServer())
       .post('/auth/login')
-      .send({ email: clientA.email, password: 'ClientPass123!', tenantSlug: 'tenant-a' })
+      .send({ email: clientA.email, password: 'ClientPass123!', tenantSlug: 'e2e-tenant-a' })
       .expect(200);
     const loginClientB = await request(app.getHttpServer())
       .post('/auth/login')
-      .send({ email: clientB.email, password: 'ClientPass123!', tenantSlug: 'tenant-a' })
+      .send({ email: clientB.email, password: 'ClientPass123!', tenantSlug: 'e2e-tenant-a' })
       .expect(200);
 
     await request(app.getHttpServer())

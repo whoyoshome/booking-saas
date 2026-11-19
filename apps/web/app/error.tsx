@@ -25,10 +25,10 @@ export default function GlobalError({
     <main className="flex min-h-screen items-center justify-center p-8">
       <div className="w-full max-w-sm space-y-4 rounded border border-line bg-surface p-6 text-center shadow-panel">
         <h1 className="font-display text-lg font-semibold text-ink">
-          Algo se rompió de este lado.
+          Something broke on our side.
         </h1>
         <p className="text-sm text-ink-600">
-          No pudimos mostrar esta pantalla. Podés intentar de nuevo, o volver al dashboard.
+          We could not show this screen. You can try again or go back to the dashboard.
         </p>
         <div className="flex justify-center gap-3 pt-2">
           <button
@@ -36,13 +36,13 @@ export default function GlobalError({
             onClick={reset}
             className="rounded bg-pine px-4 py-2 text-sm font-medium text-white hover:bg-pine-dark"
           >
-            Reintentar
+            Try again
           </button>
           <a
             href="/dashboard"
             className="rounded border border-line px-4 py-2 text-sm font-medium text-ink hover:bg-paper"
           >
-            Ir al dashboard
+            Go to dashboard
           </a>
         </div>
       </div>

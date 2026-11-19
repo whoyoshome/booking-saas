@@ -123,13 +123,29 @@ async function main() {
     // (tenantId, email) and the tenant isolation e2e tests.
     await seedTenantWithAdmin(tx, {
       slug: 'tenant-a',
-      name: 'Tenant A (Demo Clínica)',
+      name: 'Tenant A (Demo Clinic)',
       adminEmail: 'admin@tenant.dev',
     });
 
     await seedTenantWithAdmin(tx, {
       slug: 'tenant-b',
-      name: 'Tenant B (Demo Salón)',
+      name: 'Tenant B (Demo Salon)',
+      adminEmail: 'admin@tenant.dev',
+    });
+
+    // The API e2e suite (apps/api/test) runs against these two instead of
+    // tenant-a/tenant-b. It creates branches, staff and bookings on every
+    // run and never deletes them; keeping them in their own tenants means
+    // they never show up in the demo tenants' dashboards.
+    await seedTenantWithAdmin(tx, {
+      slug: 'e2e-tenant-a',
+      name: 'E2E Tenant A',
+      adminEmail: 'admin@tenant.dev',
+    });
+
+    await seedTenantWithAdmin(tx, {
+      slug: 'e2e-tenant-b',
+      name: 'E2E Tenant B',
       adminEmail: 'admin@tenant.dev',
     });
   });

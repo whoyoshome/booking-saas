@@ -23,14 +23,14 @@ describe('StatusFilter', () => {
   it('is a labelled group with one button per option, each with its count', () => {
     setup();
 
-    expect(screen.getByRole('group', { name: 'Filtrar por estado' })).toBeInTheDocument();
+    expect(screen.getByRole('group', { name: 'Filter by status' })).toBeInTheDocument();
     for (const name of [
-      'Todas (15)',
-      'PENDING (6)',
-      'CONFIRMED (4)',
-      'CANCELLED (2)',
-      'COMPLETED (2)',
-      'NO_SHOW (1)',
+      'All (15)',
+      'Pending (6)',
+      'Confirmed (4)',
+      'Cancelled (2)',
+      'Completed (2)',
+      'No-show (1)',
     ]) {
       expect(screen.getByRole('button', { name })).toBeInTheDocument();
     }
@@ -39,24 +39,24 @@ describe('StatusFilter', () => {
   it('marks only the current option as pressed', () => {
     setup('PENDING');
 
-    expect(screen.getByRole('button', { name: 'PENDING (6)' })).toHaveAttribute('aria-pressed', 'true');
-    expect(screen.getByRole('button', { name: 'Todas (15)' })).toHaveAttribute('aria-pressed', 'false');
-    expect(screen.getByRole('button', { name: 'CONFIRMED (4)' })).toHaveAttribute('aria-pressed', 'false');
+    expect(screen.getByRole('button', { name: 'Pending (6)' })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByRole('button', { name: 'All (15)' })).toHaveAttribute('aria-pressed', 'false');
+    expect(screen.getByRole('button', { name: 'Confirmed (4)' })).toHaveAttribute('aria-pressed', 'false');
   });
 
   it('reports the clicked status', async () => {
     const { onChange, user } = setup();
 
-    await user.click(screen.getByRole('button', { name: 'NO_SHOW (1)' }));
+    await user.click(screen.getByRole('button', { name: 'No-show (1)' }));
 
     expect(onChange).toHaveBeenCalledTimes(1);
     expect(onChange).toHaveBeenCalledWith('NO_SHOW');
   });
 
-  it('reports ALL for "Todas"', async () => {
+  it('reports ALL for "All"', async () => {
     const { onChange, user } = setup('PENDING');
 
-    await user.click(screen.getByRole('button', { name: 'Todas (15)' }));
+    await user.click(screen.getByRole('button', { name: 'All (15)' }));
 
     expect(onChange).toHaveBeenCalledWith('ALL');
   });
@@ -65,7 +65,7 @@ describe('StatusFilter', () => {
     const { onChange, user } = setup('PENDING');
 
     await user.tab();
-    expect(screen.getByRole('button', { name: 'Todas (15)' })).toHaveFocus();
+    expect(screen.getByRole('button', { name: 'All (15)' })).toHaveFocus();
 
     await user.keyboard('{Enter}');
     expect(onChange).toHaveBeenLastCalledWith('ALL');

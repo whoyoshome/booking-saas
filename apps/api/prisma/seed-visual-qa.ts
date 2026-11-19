@@ -24,7 +24,7 @@ async function main() {
         where: { tenantId: tenant.id, email: 'admin@tenant.dev' },
       });
       const realBranch = await tx.branch.findFirstOrThrow({
-        where: { tenantId: tenant.id, name: 'Sucursal Centro' },
+        where: { tenantId: tenant.id, name: 'Downtown Branch' },
       });
       const service = await tx.service.findFirstOrThrow({
         where: { branchId: realBranch.id },
@@ -34,7 +34,7 @@ async function main() {
       });
 
       for (let i = 1; i <= EXTRA_BRANCHES; i++) {
-        const name = `Sucursal QA ${String(i).padStart(2, '0')}`;
+        const name = `QA Branch ${String(i).padStart(2, '0')}`;
         const exists = await tx.branch.findFirst({
           where: { tenantId: tenant.id, name },
         });
