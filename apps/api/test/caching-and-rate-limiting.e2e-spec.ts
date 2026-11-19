@@ -4,22 +4,49 @@ import type { NestExpressApplication } from '@nestjs/platform-express';
 import request from 'supertest';
 import { AppModule } from '../src/app.module';
 import { applyTrustProxy } from '../src/common/config/trust-proxy';
+import { RedisService } from '../src/redis/redis.service';
 import { futureMonday } from './support/dates';
 
 const MONDAY = futureMonday();
 
-async function bootApp(options: { trustProxy?: string } = {}): Promise<INestApplication> {
-  const moduleRef: TestingModule = await Test.createTestingModule({
-    imports: [AppModule],
-  }).compile();
-  const app = moduleRef.createNestApplication<NestExpressApplication>();
-  // Same call main.ts makes with process.env.TRUST_PROXY.
-  applyTrustProxy(app, options.trustProxy);
-  app.useGlobalPipes(
-    new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true, transform: true }),
-  );
-  await app.init();
-  return app;
+async function bootApp(
+  options: { trustProxy?: string; throttleStorage?: string } = {},
+): Promise<INestApplication> {
+  // ThrottlerModule reads THROTTLE_STORAGE while the module compiles.
+  const previousStorage = process.env.THROTTLE_STORAGE;
+  if (options.throttleStorage !== undefined) process.env.THROTTLE_STORAGE = options.throttleStorage;
+  try {
+    const moduleRef: TestingModule = await Test.createTestingModule({
+      imports: [AppModule],
+    }).compile();
+    const app = moduleRef.createNestApplication<NestExpressApplication>();
+    // Same call main.ts makes with process.env.TRUST_PROXY.
+    applyTrustProxy(app, options.trustProxy);
+    app.useGlobalPipes(
+      new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true, transform: true }),
+    );
+    await app.init();
+    return app;
+  } finally {
+    if (previousStorage === undefined) delete process.env.THROTTLE_STORAGE;
+    else process.env.THROTTLE_STORAGE = previousStorage;
+  }
+}
+
+/** The Redis client connects asynchronously after init; wait until it answers. */
+async function waitForRedis(app: INestApplication): Promise<void> {
+  const redis = app.get(RedisService);
+  for (let i = 0; i < 50; i++) {
+    try {
+      // eslint-disable-next-line no-await-in-loop
+      await redis.incrementWindow('throttle:e2e-warmup', 1_000);
+      return;
+    } catch {
+      // eslint-disable-next-line no-await-in-loop
+      await new Promise((resolve) => setTimeout(resolve, 100));
+    }
+  }
+  throw new Error('Redis did not become ready.');
 }
 
 describe('Redis cache invalidation (e2e)', () => {
@@ -191,6 +218,45 @@ describe('Login rate limiting behind a reverse proxy (e2e)', () => {
       // eslint-disable-next-line no-await-in-loop
       statuses.push((await failedLogin(`198.18.0.${i + 1}, 203.0.113.30`)).status);
     }
+    expect(statuses).toEqual([401, 401, 401, 401, 401, 429]);
+  });
+});
+
+describe('Login rate limiting shared by several API instances (THROTTLE_STORAGE=redis, e2e)', () => {
+  let first: INestApplication;
+  let second: INestApplication;
+
+  beforeAll(async () => {
+    first = await bootApp({ trustProxy: '1', throttleStorage: 'redis' });
+    second = await bootApp({ trustProxy: '1', throttleStorage: 'redis' });
+    await waitForRedis(first);
+    await waitForRedis(second);
+  });
+
+  afterAll(async () => {
+    await first.close();
+    await second.close();
+  });
+
+  it('two instances behind one load balancer share one login budget per client', async () => {
+    // A fresh client address per run: the counter lives in the shared Redis
+    // for a minute, so a fixed address would collide with the previous run.
+    const hex = () => Math.floor(Math.random() * 0x10000).toString(16);
+    const client = `2001:db8::${hex()}:${hex()}:${hex()}`;
+    const failedLoginOn = (app: INestApplication) =>
+      request(app.getHttpServer())
+        .post('/auth/login')
+        .set('X-Forwarded-For', client)
+        .send({ email: 'admin@tenant.dev', password: 'wrong-password', tenantSlug: 'e2e-tenant-a' });
+
+    const statuses: number[] = [];
+    for (const app of [first, first, first, second, second, second]) {
+      // eslint-disable-next-line no-await-in-loop
+      statuses.push((await failedLoginOn(app)).status);
+    }
+
+    // With per-process counters the second instance would start from zero
+    // and answer 401 three more times.
     expect(statuses).toEqual([401, 401, 401, 401, 401, 429]);
   });
 });
