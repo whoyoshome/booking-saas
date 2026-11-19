@@ -123,6 +123,8 @@ With the stack up and the database migrated and seeded (see [Run locally](#run-l
 docker compose exec api npm run test:e2e
 ```
 
+The suite logs in to its own tenants (`e2e-tenant-a`, `e2e-tenant-b`, created by `npm run seed`), so the branches and bookings it leaves behind never appear in the demo tenants.
+
 ### Browser tests (Playwright) with Docker
 
 Docker runs Postgres, Redis and the API. Playwright runs on the host (Node 20+) against a production build of the web app, which it starts itself, like CI.

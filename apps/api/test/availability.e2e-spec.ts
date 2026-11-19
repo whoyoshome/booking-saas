@@ -34,7 +34,7 @@ describe('Availability (e2e)', () => {
       .send({
         email: 'admin@tenant.dev',
         password: 'ChangeMe123!',
-        tenantSlug: 'tenant-a',
+        tenantSlug: 'e2e-tenant-a',
       })
       .expect(200);
     tenantAToken = loginA.body.accessToken;

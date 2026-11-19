@@ -30,7 +30,7 @@ describe('Staff schedules & exceptions (e2e)', () => {
       .send({
         email: 'admin@tenant.dev',
         password: 'ChangeMe123!',
-        tenantSlug: 'tenant-a',
+        tenantSlug: 'e2e-tenant-a',
       })
       .expect(200);
     tenantAToken = loginA.body.accessToken;
@@ -40,7 +40,7 @@ describe('Staff schedules & exceptions (e2e)', () => {
       .send({
         email: 'admin@tenant.dev',
         password: 'ChangeMe123!',
-        tenantSlug: 'tenant-b',
+        tenantSlug: 'e2e-tenant-b',
       })
       .expect(200);
     tenantBToken = loginB.body.accessToken;

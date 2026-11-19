@@ -5,7 +5,7 @@ import { AppModule } from '../src/app.module';
 
 /**
  * Services module. Same seed-data coupling documented in
- * tenant-isolation.e2e-spec.ts (tenant-a / tenant-b / admin@tenant.dev).
+ * tenant-isolation.e2e-spec.ts (e2e-tenant-a / e2e-tenant-b / admin@tenant.dev).
  * Run `npm run seed` before this suite.
  */
 describe('Services (e2e)', () => {
@@ -35,7 +35,7 @@ describe('Services (e2e)', () => {
       .send({
         email: 'admin@tenant.dev',
         password: 'ChangeMe123!',
-        tenantSlug: 'tenant-a',
+        tenantSlug: 'e2e-tenant-a',
       })
       .expect(200);
     tenantAToken = loginA.body.accessToken;
@@ -45,7 +45,7 @@ describe('Services (e2e)', () => {
       .send({
         email: 'admin@tenant.dev',
         password: 'ChangeMe123!',
-        tenantSlug: 'tenant-b',
+        tenantSlug: 'e2e-tenant-b',
       })
       .expect(200);
     tenantBToken = loginB.body.accessToken;

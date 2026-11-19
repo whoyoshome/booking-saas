@@ -25,7 +25,7 @@ describe('Redis cache invalidation (e2e)', () => {
     app = await bootApp();
     const loginA = await request(app.getHttpServer())
       .post('/auth/login')
-      .send({ email: 'admin@tenant.dev', password: 'ChangeMe123!', tenantSlug: 'tenant-a' })
+      .send({ email: 'admin@tenant.dev', password: 'ChangeMe123!', tenantSlug: 'e2e-tenant-a' })
       .expect(200);
     tenantAToken = loginA.body.accessToken;
   });
@@ -131,7 +131,7 @@ describe('Login rate limiting (e2e)', () => {
     const attempt = () =>
       request(app.getHttpServer())
         .post('/auth/login')
-        .send({ email: 'admin@tenant.dev', password: 'wrong-password', tenantSlug: 'tenant-a' });
+        .send({ email: 'admin@tenant.dev', password: 'wrong-password', tenantSlug: 'e2e-tenant-a' });
 
     const results = [];
     for (let i = 0; i < 6; i++) {
