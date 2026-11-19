@@ -55,7 +55,21 @@ docker compose up --build
 
 Web: http://localhost:3000 · API: http://localhost:3001/health
 
-Use the same demo emails and password as above. After a volume wipe (`docker compose down -v`), run migrations as `booking_admin` then seed before logging in with an old JWT.
+On a new database (first run, or after `docker compose down -v`), apply the migrations as `booking_admin` (the owner role; the runtime `booking_app` role can't create tables), then load the base seed and the demo data (branches, services, staff, schedules):
+
+```bash
+docker compose exec api sh -c 'DATABASE_URL="$DATABASE_MIGRATE_URL" npx prisma migrate deploy'
+```
+
+```bash
+docker compose exec api npm run seed
+```
+
+```bash
+docker compose exec api npm run seed:demo
+```
+
+Then log in with the demo emails and password above (log in again if the browser still holds a JWT from the previous database).
 
 ## Repository
 
