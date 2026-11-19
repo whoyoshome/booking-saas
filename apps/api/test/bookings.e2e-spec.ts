@@ -412,4 +412,80 @@ describe('Bookings (e2e)', () => {
       expect(await redis.getJson(cacheKey)).toEqual([]);
     });
   });
+
+  describe('status transitions are atomic', () => {
+    async function pendingBooking(time: string) {
+      const created = await request(app.getHttpServer())
+        .post('/bookings')
+        .set('Authorization', `Bearer ${tenantAToken}`)
+        .send({ staffId, serviceId, startTime: `${NEXT_MONDAY}T${time}:00.000Z` })
+        .expect(201);
+      return created.body as { id: string; tenantId: string };
+    }
+
+    const patch = (id: string, action: 'confirm' | 'cancel') =>
+      request(app.getHttpServer())
+        .patch(`/bookings/${id}/${action}`)
+        .set('Authorization', `Bearer ${tenantAToken}`);
+
+    const statusOf = (tenantId: string, id: string) =>
+      inTenant(moduleRef.get(PrismaService), tenantId, (tx) =>
+        tx.booking.findUniqueOrThrow({ where: { id }, select: { status: true } }),
+      ).then((b) => b.status);
+
+    it('confirming a cancelled booking is rejected with 400', async () => {
+      const { id, tenantId } = await pendingBooking('10:20');
+      await patch(id, 'cancel').expect(200);
+
+      const res = await patch(id, 'confirm').expect(400);
+
+      expect(res.body.message).toBe('Cannot confirm a booking in status CANCELLED.');
+      expect(await statusOf(tenantId, id)).toBe(BookingStatus.CANCELLED);
+    });
+
+    it('confirming twice: the second confirm is rejected with 400', async () => {
+      const { id, tenantId } = await pendingBooking('11:00');
+      await patch(id, 'confirm').expect(200);
+
+      const res = await patch(id, 'confirm').expect(400);
+
+      expect(res.body.message).toBe('Cannot confirm a booking in status CONFIRMED.');
+      expect(await statusOf(tenantId, id)).toBe(BookingStatus.CONFIRMED);
+    });
+
+    it('a confirm racing a cancel that commits first is rejected, and the booking stays CANCELLED', async () => {
+      const { id, tenantId } = await pendingBooking('11:40');
+
+      // The confirm reads PENDING, then the cancel commits before it writes.
+      const res = await raceAgainstUncommittedChange(
+        moduleRef.get(PrismaService),
+        tenantId,
+        (tx) =>
+          tx.booking.update({
+            where: { id },
+            data: { status: BookingStatus.CANCELLED, cancelledAt: new Date() },
+          }),
+        () => patch(id, 'confirm'),
+      );
+
+      expect(res.status).toBe(400);
+      expect(res.body.message).toBe('Cannot confirm a booking in status CANCELLED.');
+      expect(await statusOf(tenantId, id)).toBe(BookingStatus.CANCELLED);
+    });
+
+    it('a cancel racing a change to COMPLETED that commits first is rejected, and the booking stays COMPLETED', async () => {
+      const { id, tenantId } = await pendingBooking('12:20');
+
+      const res = await raceAgainstUncommittedChange(
+        moduleRef.get(PrismaService),
+        tenantId,
+        (tx) => tx.booking.update({ where: { id }, data: { status: BookingStatus.COMPLETED } }),
+        () => patch(id, 'cancel'),
+      );
+
+      expect(res.status).toBe(400);
+      expect(res.body.message).toBe('Cannot cancel a booking in status COMPLETED.');
+      expect(await statusOf(tenantId, id)).toBe(BookingStatus.COMPLETED);
+    });
+  });
 });

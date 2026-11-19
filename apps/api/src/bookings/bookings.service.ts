@@ -171,15 +171,18 @@ export class BookingsService {
     if (!booking) {
       throw new NotFoundException('Booking not found.');
     }
-    if (booking.status !== BookingStatus.PENDING) {
-      throw new BadRequestException(
-        `Cannot confirm a booking in status ${booking.status}.`,
-      );
-    }
-    const updated = await this.prisma.client.booking.update({
-      where: { id },
+    // Atomic transition: the expected status is part of the UPDATE itself,
+    // never "read the status, then update unconditionally". PostgreSQL
+    // re-checks it on the row it locks, so a cancel (or another confirm)
+    // that commits after the read above can't be overwritten.
+    const { count } = await this.prisma.client.booking.updateMany({
+      where: { id, status: BookingStatus.PENDING },
       data: { status: BookingStatus.CONFIRMED },
     });
+    if (count === 0) {
+      throw await this.invalidTransition(id, 'confirm');
+    }
+    const updated = await this.prisma.client.booking.findFirstOrThrow({ where: { id } });
     // Status didn't change what's occupied (PENDING already counted), but
     // invalidate anyway — cheap, and removes any doubt if that ever
     // changes (e.g. a future decision to only cache-count CONFIRMED).
@@ -193,24 +196,44 @@ export class BookingsService {
       throw new NotFoundException('Booking not found.');
     }
 
-    if (
-      booking.status === BookingStatus.CANCELLED ||
-      booking.status === BookingStatus.COMPLETED
-    ) {
-      throw new BadRequestException(
-        `Cannot cancel a booking in status ${booking.status}.`,
-      );
-    }
-
-    const updated = await this.prisma.client.booking.update({
-      where: { id },
+    // Same atomic transition as confirm(): only a booking that is still
+    // cancellable at write time is cancelled.
+    const { count } = await this.prisma.client.booking.updateMany({
+      where: {
+        id,
+        status: { notIn: [BookingStatus.CANCELLED, BookingStatus.COMPLETED] },
+      },
       data: { status: BookingStatus.CANCELLED, cancelledAt: new Date() },
     });
+    if (count === 0) {
+      throw await this.invalidTransition(id, 'cancel');
+    }
+    const updated = await this.prisma.client.booking.findFirstOrThrow({ where: { id } });
     // This one matters most: cancelling FREES a slot. Without this
     // invalidation, GET /availability would keep hiding that slot for up
     // to 30s (the TTL) after it's actually bookable again.
     await this.invalidateAvailabilityCache(updated.tenantId, updated.staffId, updated.startTime);
     return updated;
+  }
+
+  /**
+   * The 400 for a transition whose conditional UPDATE matched no row: the
+   * booking is no longer in a status that allows it. Reads the status as it
+   * is now (READ COMMITTED: a fresh snapshot) so the message names the
+   * status that actually blocked it, even when another request changed it
+   * a moment ago.
+   */
+  private async invalidTransition(
+    id: string,
+    action: 'confirm' | 'cancel',
+  ): Promise<BadRequestException> {
+    const current = await this.prisma.client.booking.findFirst({
+      where: { id },
+      select: { status: true },
+    });
+    return new BadRequestException(
+      `Cannot ${action} a booking in status ${current?.status ?? 'unknown'}.`,
+    );
   }
 
   private async invalidateAvailabilityCache(
