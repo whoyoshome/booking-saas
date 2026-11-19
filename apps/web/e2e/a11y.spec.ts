@@ -45,6 +45,10 @@ test.describe('logged out', () => {
       route.fulfill({ status: 401, json: { message: 'Credenciales inválidas.' } }),
     );
     await page.goto('/login');
+    // The prerendered HTML only has the Suspense fallback ("Cargando…");
+    // the form appears after hydration, which can finish after `load`.
+    // Tabbing before that leaves focus on <body>.
+    await expect(page.getByLabel('Tenant')).toBeVisible();
 
     // Tab order follows the visual order of the form.
     await page.keyboard.press('Tab');
