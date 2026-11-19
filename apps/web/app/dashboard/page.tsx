@@ -167,7 +167,7 @@ export default function DashboardPage() {
       {canOperate && <AiAssistBox />}
 
       {error && (
-        <p className="mb-4 rounded bg-rust-bg px-3 py-2 text-sm text-rust-dark">
+        <p role="alert" className="mb-4 rounded bg-rust-bg px-3 py-2 text-sm text-rust-dark">
           Error consultando la API: {error}
         </p>
       )}
@@ -186,6 +186,7 @@ export default function DashboardPage() {
                 type="search"
                 value={branchPage.query}
                 onChange={(e) => branchPage.onQueryChange(e.target.value)}
+                aria-label="Buscar sucursal"
                 placeholder="Buscar sucursal…"
                 className={searchInputClass}
               />
@@ -246,6 +247,7 @@ export default function DashboardPage() {
               type="search"
               value={bookingPage.query}
               onChange={(e) => bookingPage.onQueryChange(e.target.value)}
+              aria-label="Buscar reserva"
               placeholder="Buscar reserva…"
               className={searchInputClass}
             />
@@ -253,7 +255,7 @@ export default function DashboardPage() {
         </div>
 
         {bookingsError && (
-          <p className="rounded bg-rust-bg px-3 py-2 text-sm text-rust-dark">
+          <p role="alert" className="rounded bg-rust-bg px-3 py-2 text-sm text-rust-dark">
             Error consultando reservas: {bookingsError}
           </p>
         )}
@@ -331,7 +333,7 @@ export default function DashboardPage() {
                     )}
 
                     {rowError?.id === b.id && (
-                      <p className="max-w-[16rem] text-right text-xs text-rust-dark">
+                      <p role="alert" className="max-w-[16rem] text-right text-xs text-rust-dark">
                         {rowError.message}
                       </p>
                     )}

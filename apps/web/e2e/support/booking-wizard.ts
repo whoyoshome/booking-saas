@@ -1,7 +1,6 @@
 import { expect, type APIRequestContext, type Page } from '@playwright/test';
-import type { AvailabilityResponse, Branch } from '../../lib/types';
-import { accessTokenOf } from './session';
-import { API_URL } from './urls';
+import type { AvailabilityResponse } from '../../lib/types';
+import { demoBranchId } from './api';
 
 function isWeekend(d: Date): boolean {
   return d.getDay() === 0 || d.getDay() === 6;
@@ -21,48 +20,19 @@ function toDateInput(d: Date): string {
     .join('-');
 }
 
-/**
- * The seed-demo branch is identified by name AND timezone: the API's own
- * e2e suite also creates a "Sucursal Centro" in tenant-a (UTC, no staff),
- * so on a local DB where both suites ran, the name alone is ambiguous.
- */
-async function demoBranchId(request: APIRequestContext): Promise<string> {
-  const res = await request.get(`${API_URL}/branches`, {
-    headers: { Authorization: `Bearer ${accessTokenOf('client')}` },
-  });
-  expect(res.ok()).toBeTruthy();
-  const branch = ((await res.json()) as Branch[]).find(
-    (b) => b.name === 'Sucursal Centro' && b.timezone === 'America/Bogota',
-  );
-  if (!branch) throw new Error('seed-demo branch not found — run `npm run seed:demo` in apps/api.');
-  return branch.id;
+/** Opens /book through the dashboard's deep link, landing on "Servicio". */
+export async function openServiceStep(page: Page, request: APIRequestContext): Promise<void> {
+  await page.goto(`/book?branchId=${await demoBranchId(request)}`);
+  await expect(page.getByRole('heading', { name: 'Servicio' })).toBeVisible();
 }
 
 /**
- * Drives the wizard up to the "Horario" step for the seed-demo data
- * (tenant-a: Sucursal Centro → Corte de cabello → ana@tenant-a.dev,
- * Mon–Fri 09:00–17:00 America/Bogota), entering through the same
- * /book?branchId= deep link the dashboard's branch cards use. Then picks
- * the first weekday from `daysAhead` on that still has free slots.
- * Re-running the suite against
- * the same local DB fills days up, so it walks forward instead of
- * assuming a fixed date is empty. Returns the real API response the grid
- * was rendered from.
+ * On the "Horario" step, picks the first weekday from `daysAhead` on that
+ * still has free slots. Re-running the suite against the same local DB
+ * fills days up, so it walks forward instead of assuming a fixed date is
+ * empty. Returns the real API response the grid was rendered from.
  */
-export async function openSlotStep(
-  page: Page,
-  request: APIRequestContext,
-  daysAhead: number,
-): Promise<AvailabilityResponse> {
-  await page.goto(`/book?branchId=${await demoBranchId(request)}`);
-  await page.getByRole('button', { name: /Corte de cabello/ }).click();
-
-  // Choosing staff loads today's grid first; wait for it so a late
-  // response can't be mistaken for the date picked below.
-  const initialGrid = page.waitForResponse((r) => r.url().includes('/availability?'));
-  await page.getByRole('button', { name: 'ana@tenant-a.dev' }).click();
-  await initialGrid;
-
+export async function pickDateWithSlots(page: Page, daysAhead: number): Promise<AvailabilityResponse> {
   const start = new Date();
   start.setDate(start.getDate() + daysAhead - 1);
   let day = nextWeekday(start);
@@ -72,7 +42,7 @@ export async function openSlotStep(
     const gridLoaded = page.waitForResponse(
       (r) => r.url().includes('/availability?') && r.url().includes(`date=${date}`),
     );
-    await page.locator('input[type="date"]').fill(date);
+    await page.getByLabel('Fecha').fill(date);
     const availability = (await (await gridLoaded).json()) as AvailabilityResponse;
 
     if (availability.slots.length > 0) {
@@ -83,4 +53,26 @@ export async function openSlotStep(
     }
   }
   throw new Error('No weekday with free slots found — is `npm run seed:demo` loaded?');
+}
+
+/**
+ * Drives the wizard up to the "Horario" step for the seed-demo data
+ * (tenant-a: Sucursal Centro → Corte de cabello → ana@tenant-a.dev,
+ * Mon–Fri 09:00–17:00 America/Bogota) and picks a date with free slots.
+ */
+export async function openSlotStep(
+  page: Page,
+  request: APIRequestContext,
+  daysAhead: number,
+): Promise<AvailabilityResponse> {
+  await openServiceStep(page, request);
+  await page.getByRole('button', { name: /Corte de cabello/ }).click();
+
+  // Choosing staff loads today's grid first; wait for it so a late
+  // response can't be mistaken for the date picked below.
+  const initialGrid = page.waitForResponse((r) => r.url().includes('/availability?'));
+  await page.getByRole('button', { name: 'ana@tenant-a.dev' }).click();
+  await initialGrid;
+
+  return pickDateWithSlots(page, daysAhead);
 }

@@ -60,13 +60,19 @@ export function AiAssistBox() {
 
   return (
     <section className="mb-8 rounded-lg border p-4">
-      <h2 className="mb-1 text-sm font-medium text-gray-500">Asistente (beta)</h2>
-      <p className="mb-3 text-xs text-gray-400">
+      <h2 className="mb-1 text-sm font-medium text-ink-600">Asistente (beta)</h2>
+      <p className="mb-3 text-xs text-ink-400">
         Responde solo con las reservas PENDING de este tenant — nunca crea, confirma ni cancela nada.
       </p>
 
       <form onSubmit={handleSubmit} className="flex gap-2">
+        {/* The placeholder is an example question, not a label — it
+            disappears as soon as someone types. */}
+        <label htmlFor="ai-assist-question" className="sr-only">
+          Pregunta para el asistente
+        </label>
         <input
+          id="ai-assist-question"
           type="text"
           value={question}
           onChange={(e) => setQuestion(e.target.value)}
@@ -85,13 +91,17 @@ export function AiAssistBox() {
         </button>
       </form>
 
-      {error && <p className="mt-3 text-sm text-amber-700">{error}</p>}
+      {error && (
+        <p role="alert" className="mt-3 text-sm text-amber-700">
+          {error}
+        </p>
+      )}
 
       {answer && (
         <div className="mt-3 rounded-md bg-gray-50 p-3 text-sm">
           <p className="whitespace-pre-wrap">{answer}</p>
           {groundedCount !== null && (
-            <p className="mt-2 text-xs text-gray-400">
+            <p className="mt-2 text-xs text-ink-400">
               Basado en {groundedCount} reserva{groundedCount === 1 ? '' : 's'} pendiente
               {groundedCount === 1 ? '' : 's'}.
             </p>
