@@ -1,16 +1,20 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
+import type { NestExpressApplication } from '@nestjs/platform-express';
 import request from 'supertest';
 import { AppModule } from '../src/app.module';
+import { applyTrustProxy } from '../src/common/config/trust-proxy';
 import { futureMonday } from './support/dates';
 
 const MONDAY = futureMonday();
 
-async function bootApp(): Promise<INestApplication> {
+async function bootApp(options: { trustProxy?: string } = {}): Promise<INestApplication> {
   const moduleRef: TestingModule = await Test.createTestingModule({
     imports: [AppModule],
   }).compile();
-  const app = moduleRef.createNestApplication();
+  const app = moduleRef.createNestApplication<NestExpressApplication>();
+  // Same call main.ts makes with process.env.TRUST_PROXY.
+  applyTrustProxy(app, options.trustProxy);
   app.useGlobalPipes(
     new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true, transform: true }),
   );
@@ -145,5 +149,48 @@ describe('Login rate limiting (e2e)', () => {
     const statuses = results.map((r) => r.status);
     expect(statuses.slice(0, 5).every((s) => s === 401)).toBe(true);
     expect(statuses[5]).toBe(429);
+  });
+});
+
+describe('Login rate limiting behind a reverse proxy (e2e)', () => {
+  let app: INestApplication;
+
+  // TRUST_PROXY=1: supertest's connection (127.0.0.1) plays the platform's
+  // load balancer, and the last X-Forwarded-For entry is the client address
+  // that proxy saw. Own app instance, so it starts with an empty counter.
+  beforeAll(async () => {
+    app = await bootApp({ trustProxy: '1' });
+  });
+
+  afterAll(async () => {
+    await app.close();
+  });
+
+  const failedLogin = (forwardedFor: string) =>
+    request(app.getHttpServer())
+      .post('/auth/login')
+      .set('X-Forwarded-For', forwardedFor)
+      .send({ email: 'admin@tenant.dev', password: 'wrong-password', tenantSlug: 'e2e-tenant-a' });
+
+  it('limits each client separately: one client hitting the limit does not lock out another one behind the same proxy', async () => {
+    const statuses: number[] = [];
+    for (let i = 0; i < 6; i++) {
+      // eslint-disable-next-line no-await-in-loop
+      statuses.push((await failedLogin('203.0.113.10')).status);
+    }
+    expect(statuses).toEqual([401, 401, 401, 401, 401, 429]);
+
+    expect((await failedLogin('203.0.113.20')).status).toBe(401);
+  });
+
+  it('only trusts the configured hops: a client-supplied X-Forwarded-For entry does not dodge the limit', async () => {
+    // The client forges a different first entry each time; the proxy still
+    // appends the same real address, and that is the one that is counted.
+    const statuses: number[] = [];
+    for (let i = 0; i < 6; i++) {
+      // eslint-disable-next-line no-await-in-loop
+      statuses.push((await failedLogin(`198.18.0.${i + 1}, 203.0.113.30`)).status);
+    }
+    expect(statuses).toEqual([401, 401, 401, 401, 401, 429]);
   });
 });

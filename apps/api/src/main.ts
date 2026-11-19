@@ -1,10 +1,17 @@
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
+import type { NestExpressApplication } from '@nestjs/platform-express';
 import { AppModule } from './app.module';
 import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
+import { applyTrustProxy } from './common/config/trust-proxy';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create<NestExpressApplication>(AppModule);
+
+  // Behind Render/ALB, set TRUST_PROXY to the number of proxies so req.ip —
+  // what the rate limiter tracks — is the client, not the load balancer.
+  // See common/config/trust-proxy.ts and docs/deploy-demo.md.
+  applyTrustProxy(app);
 
   // Demo/prod: set CORS_ORIGIN to the web origin(s), comma-separated.
   // Local/dev keeps wide open when unset. Production must set it — an
