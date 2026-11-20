@@ -1,7 +1,9 @@
-import { Injectable, Logger, ServiceUnavailableException } from '@nestjs/common';
+import { Inject, Injectable, Logger, ServiceUnavailableException } from '@nestjs/common';
 import OpenAI from 'openai';
 import { BookingStatus } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { AfterCommit } from '../prisma/after-commit';
+import { OPENAI_CLIENT } from './openai-client';
 
 // Bounds token usage/cost — also a reasonable ceiling for what an admin
 // actually needs to review in one sitting. If a tenant genuinely has more
@@ -33,16 +35,24 @@ export interface AiAssistResult {
  * going through the existing PATCH /bookings/:id/confirm|cancel routes,
  * with their own RBAC and business-rule checks. An LLM response is
  * advisory text, never a side effect.
+ *
+ * The OpenAI call runs AFTER the request's RLS transaction commits (it is
+ * returned as an AfterCommit step), so a slow model never holds a Postgres
+ * connection or races the transaction's 10 s timeout. The client is one
+ * process-wide instance with its own timeout (see openai-client.ts).
  */
 @Injectable()
 export class AiAssistService {
   private readonly logger = new Logger(AiAssistService.name);
+  private readonly model = process.env.OPENAI_MODEL || 'gpt-4o-mini';
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    @Inject(OPENAI_CLIENT) private readonly openai: OpenAI | null,
+  ) {}
 
-  async assist(question: string): Promise<AiAssistResult> {
-    const apiKey = process.env.OPENAI_API_KEY;
-    if (!apiKey) {
+  async assist(question: string): Promise<AfterCommit<AiAssistResult>> {
+    if (!this.openai) {
       // Explicit, documented behavior (docs/ai-assist.md) — not a 500.
       // This is also exactly what CI sees: no OPENAI_API_KEY secret is
       // configured there on purpose, so the e2e suite exercises this
@@ -75,13 +85,20 @@ export class AiAssistService {
       status: b.status,
     }));
 
-    const client = new OpenAI({ apiKey });
-    const model = process.env.OPENAI_MODEL || 'gpt-4o-mini';
+    // Everything the model needs is read above, inside the transaction.
+    const openai = this.openai;
+    return new AfterCommit(() => this.ask(openai, question, groundingData));
+  }
 
+  private async ask(
+    openai: OpenAI,
+    question: string,
+    groundingData: object[],
+  ): Promise<AiAssistResult> {
     let answer: string | undefined;
     try {
-      const completion = await client.chat.completions.create({
-        model,
+      const completion = await openai.chat.completions.create({
+        model: this.model,
         temperature: 0, // deterministic — this is an admin data tool, not a creative one
         messages: [
           { role: 'system', content: SYSTEM_PROMPT },
@@ -97,6 +114,9 @@ export class AiAssistService {
       answer = completion.choices[0]?.message?.content?.trim();
     } catch (err) {
       this.logger.warn(`OpenAI call failed: ${err instanceof Error ? err.message : String(err)}`);
+      if (err instanceof OpenAI.APIConnectionTimeoutError) {
+        throw new ServiceUnavailableException('AI assist did not answer in time.');
+      }
       throw new ServiceUnavailableException('AI assist is temporarily unavailable.');
     }
 
