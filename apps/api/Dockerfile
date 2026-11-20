@@ -1,5 +1,5 @@
 # Development image. The production image is Dockerfile.prod.
-FROM node:20-alpine
+FROM node:26-alpine
 
 # Prisma's query engine requires openssl at runtime; without it, Alpine fails
 # with a confusing connection error (the missing system lib is not obvious
