@@ -15,6 +15,8 @@ import { BranchSchedulesModule } from './branch-schedules/branch-schedules.modul
 import { BookingsModule } from './bookings/bookings.module';
 import { CorrelationIdMiddleware } from './common/middleware/correlation-id.middleware';
 import { RedisModule } from './redis/redis.module';
+import { RedisService } from './redis/redis.service';
+import { throttlerStorageFromEnv } from './redis/redis-throttler.storage';
 import { AiModule } from './ai/ai.module';
 
 @Module({
@@ -25,9 +27,14 @@ import { AiModule } from './ai/ai.module';
     // interfere with normal e2e test runs (dozens of requests in a tight
     // loop within one suite), tight enough to blunt casual scraping/abuse.
     // Individual endpoints override this — see AuthController.login for
-    // the stricter brute-force limit.
-    ThrottlerModule.forRoot({
-      throttlers: [{ name: 'default', ttl: 60_000, limit: 100 }],
+    // the stricter brute-force limit. Counters live in memory per process
+    // unless THROTTLE_STORAGE=redis (see redis-throttler.storage.ts).
+    ThrottlerModule.forRootAsync({
+      inject: [RedisService],
+      useFactory: (redis: RedisService) => ({
+        throttlers: [{ name: 'default', ttl: 60_000, limit: 100 }],
+        storage: throttlerStorageFromEnv(process.env.THROTTLE_STORAGE, redis),
+      }),
     }),
     RedisModule,
     PrismaModule,

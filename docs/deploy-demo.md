@@ -48,12 +48,38 @@ JWT_REFRESH_SECRET=…
 JWT_ACCESS_EXPIRES_IN=15m
 JWT_REFRESH_EXPIRES_IN=7d
 CORS_ORIGIN=https://<app>.vercel.app
+TRUST_PROXY=1             # proxies in front of the API; see "Rate limiting behind Render's proxy"
 OPENAI_API_KEY=…          # optional; without it POST /ai/assist returns 503
 ```
 
 Migrations never run inside the runtime container. Run them once, as shown above, before the first traffic.
 
 The free tier spins the service down when idle, so the first request after a pause takes 30–50 seconds.
+
+### Rate limiting behind Render's proxy
+
+The API rate-limits per client IP: 5 logins per minute, 100 requests per minute overall. On Render every request reaches the container through Render's proxy, so without configuration the API sees the proxy's address for every user, and the login limit becomes one budget shared by everyone.
+
+- `TRUST_PROXY` is the number of proxies in front of the API. Express then reads the client address from `X-Forwarded-For` that many entries from the right. Unset or `0` means no proxy is trusted, which is right for local Docker.
+- Only a whole number is accepted, and the API refuses to start otherwise. `true` would trust every entry in `X-Forwarded-For`, which the client can write itself to dodge the limit.
+- Start with `TRUST_PROXY=1`, the usual setting for Express on Render. Render's public docs don't spell out the exact `X-Forwarded-For` chain, so check the value after deploying, as described below.
+- `THROTTLE_STORAGE` decides where the counters live. Leave it unset (`memory`) on the demo: it runs one instance and an extra Upstash round-trip per request buys nothing. Set `THROTTLE_STORAGE=redis` whenever more than one API instance serves traffic (for example several ECS tasks behind an ALB), so they share one budget per client. If Redis is unreachable, the API falls back to per-instance counters and logs a warning.
+
+**Check `TRUST_PROXY` after a deploy.** A 429 lasts up to 60 seconds, so wait a minute before steps 1 and 3.
+
+1. Same client, six failed logins. Expect five `401` and then a `429`:
+
+   ```bash
+   for i in 1 2 3 4 5 6; do
+     curl -s -o /dev/null -w "%{http_code}\n" -X POST "https://<api>.onrender.com/auth/login" \
+       -H "Content-Type: application/json" \
+       -d '{"email":"nobody@example.com","password":"x","tenantSlug":"tenant-a"}'
+   done
+   ```
+
+2. Straight after step 1, run one failed login from a different network, such as a phone hotspot. Expect `401`. A `429` means the API still sees a proxy address: `TRUST_PROXY` is too low.
+
+3. A minute later, repeat step 1 with a different forged header on each request, for example `-H "X-Forwarded-For: 198.51.100.$i"`. The sixth must still be `429`. Six `401`s mean the API trusts an entry the client wrote: `TRUST_PROXY` is too high.
 
 ## 4. Vercel (frontend)
 

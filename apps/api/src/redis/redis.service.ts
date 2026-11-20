@@ -3,6 +3,19 @@ import Redis from 'ioredis';
 
 const OPERATION_BUDGET_MS = 300;
 
+// Fixed-window counter: INCR, and set the window's expiry when the key is
+// new (or somehow has none). One script, so concurrent API instances can't
+// interleave between the INCR and the PEXPIRE. Returns [hits, ms to expiry].
+const WINDOW_SCRIPT = `
+local hits = redis.call('INCR', KEYS[1])
+local ttl = redis.call('PTTL', KEYS[1])
+if ttl < 0 then
+  redis.call('PEXPIRE', KEYS[1], ARGV[1])
+  ttl = tonumber(ARGV[1])
+end
+return {hits, ttl}
+`;
+
 /**
  * Thin wrapper, not a generic cache abstraction — cache-aside is applied
  * explicitly at each call site (AvailabilityService/BookingsService), not
@@ -73,6 +86,22 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
       // availability read for a few seconds is an acceptable cost, a
       // hard failure on cancel/confirm is not.
     }
+  }
+
+  /**
+   * Counts one hit in a fixed window of `windowMs` (rate limiting). Unlike
+   * the cache methods above it THROWS when Redis is unreachable or slow,
+   * so the caller decides how to degrade (RedisThrottlerStorage falls back
+   * to an in-memory counter). Same operation budget.
+   */
+  async incrementWindow(
+    key: string,
+    windowMs: number,
+  ): Promise<{ hits: number; msToExpire: number }> {
+    const [hits, msToExpire] = (await this.withBudget(
+      this.client.eval(WINDOW_SCRIPT, 1, key, windowMs),
+    )) as [number, number];
+    return { hits, msToExpire };
   }
 
   /**
