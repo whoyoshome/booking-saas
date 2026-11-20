@@ -141,7 +141,7 @@ The suite logs in to its own tenants (`e2e-tenant-a`, `e2e-tenant-b`, created by
 
 ### Browser tests (Playwright) with Docker
 
-Docker runs Postgres, Redis and the API. Playwright runs on the host (Node 20+) against a production build of the web app, which it starts itself, like CI.
+Docker runs Postgres, Redis and the API. Playwright runs on the host (Node 26+) against a production build of the web app, which it starts itself, like CI.
 
 1. Start the backend services, then migrate and seed (`seed:demo` is required; the base seed has no branches or staff):
 

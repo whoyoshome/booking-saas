@@ -11,6 +11,6 @@
     "build": "npm run build --workspace=apps/api && npm run build --workspace=apps/web"
   },
   "engines": {
-    "node": ">=20.0.0"
+    "node": ">=26.0.0"
   }
 }

@@ -1,5 +1,5 @@
 # Development image. The production image is Dockerfile.prod.
-FROM node:20-alpine
+FROM node:26-alpine
 
 WORKDIR /app
 

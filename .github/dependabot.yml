@@ -1,0 +1,80 @@
+# Dependabot version updates. Security updates are separate: enable
+# "Dependabot security updates" in the repository settings so vulnerable
+# dependencies get PRs as soon as an advisory is published.
+#
+# Each app has its own package.json and lockfile (CI installs with
+# `npm ci --no-workspaces`), so each gets its own entry. Minor and patch
+# updates are grouped into one weekly PR per directory to keep the noise
+# down; majors still arrive as individual PRs, except for the frameworks
+# below, whose majors need a planned migration (code changes, not just a
+# version bump) and are tracked by hand.
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /apps/api
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    groups:
+      api-minor-and-patch:
+        update-types: [minor, patch]
+    ignore:
+      # NestJS 11+ (Express 5 routing, ESM-only packages) and Prisma 6/7
+      # (generator, driver adapters, ESM) are planned upgrades.
+      - dependency-name: "@nestjs/*"
+        update-types: [version-update:semver-major]
+      - dependency-name: prisma
+        update-types: [version-update:semver-major]
+      - dependency-name: "@prisma/client"
+        update-types: [version-update:semver-major]
+
+  - package-ecosystem: npm
+    directory: /apps/web
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    groups:
+      web-minor-and-patch:
+        update-types: [minor, patch]
+    ignore:
+      # Next 15 needs React 19; both are a planned upgrade.
+      - dependency-name: next
+        update-types: [version-update:semver-major]
+      - dependency-name: eslint-config-next
+        update-types: [version-update:semver-major]
+      - dependency-name: react
+        update-types: [version-update:semver-major]
+      - dependency-name: react-dom
+        update-types: [version-update:semver-major]
+      - dependency-name: "@types/react"
+        update-types: [version-update:semver-major]
+      - dependency-name: "@types/react-dom"
+        update-types: [version-update:semver-major]
+
+  # Base images in Dockerfile and Dockerfile.prod (Dependabot reads every
+  # file whose name contains "dockerfile"). Only minor/patch of the same
+  # Node major: moving to the next LTS is a deliberate change, and odd
+  # Node majors are never LTS.
+  - package-ecosystem: docker
+    directory: /apps/api
+    schedule:
+      interval: weekly
+    ignore:
+      - dependency-name: node
+        update-types: [version-update:semver-major]
+
+  - package-ecosystem: docker
+    directory: /apps/web
+    schedule:
+      interval: weekly
+    ignore:
+      - dependency-name: node
+        update-types: [version-update:semver-major]
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      github-actions:
+        patterns: ["*"]
