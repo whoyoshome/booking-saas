@@ -29,17 +29,36 @@ It states three guarantees explicitly:
 
 `temperature: 0`: this is an administrative data tool, not a conversational one.
 
+## Timeouts and the request transaction
+
+The grounding read runs inside the request's RLS transaction, like every other tenant-scoped query. The OpenAI call does not. The service returns it as an `AfterCommit` step (`apps/api/src/prisma/after-commit.ts`), and `TenantContextInterceptor` runs that step only after the transaction has committed. A slow model therefore never holds a Postgres connection open or races the transaction's 10-second timeout. Inside the step, `PrismaService.client` throws, so the call can only use the data already read.
+
+One OpenAI client is created at startup and shared by every request (`apps/api/src/ai/openai-client.ts`):
+
+| Setting | Value | Why |
+|---|---|---|
+| `timeout` | `OPENAI_TIMEOUT_MS`, default 20 000 ms; an invalid value stops startup | The SDK default is 10 minutes. |
+| `maxRetries` | 0 | The SDK default of 2 retries triples the worst case for a request an admin is waiting on; they can simply ask again. |
+| `baseURL` | `OPENAI_BASE_URL` when set | Lets the e2e tests point the real SDK at a fake server. |
+
 ## Missing configuration
 
-Without `OPENAI_API_KEY`, the endpoint returns `503 Service Unavailable` with `"AI assist is not configured on this environment (missing OPENAI_API_KEY)."`. This is the default in CI and in the hosted demo. The dashboard still shows the button to admins and staff, so the feature reports itself as unconfigured instead of looking broken. Upstream failures and empty model responses also return `503`.
+Without `OPENAI_API_KEY`, the endpoint returns `503 Service Unavailable` with `"AI assist is not configured on this environment (missing OPENAI_API_KEY)."`. This is the default in CI and in the hosted demo. The dashboard still shows the button to admins and staff, so the feature reports itself as unconfigured instead of looking broken. Upstream failures and empty model responses also return `503` (`"AI assist is temporarily unavailable."`), and a call that exceeds the timeout returns `503` with `"AI assist did not answer in time."`.
 
 ## Test coverage
 
-`apps/api/test/ai-assist.e2e-spec.ts` covers what can be verified without a real key: RBAC (`403` for `CLIENT`), input validation (`400`) and the `503` contract.
+`apps/api/test/ai-assist.e2e-spec.ts` covers RBAC (`403` for `CLIENT`), input validation (`400`) and the `503` contract without a key.
+
+It also runs the real SDK against a local fake OpenAI server (`apps/api/test/support/fake-openai.ts`), with no key or network needed. It covers:
+
+- a grounded answer, including what is sent to the model;
+- a model slower than the 10-second transaction still answering;
+- an upstream error, tried once, becoming a `503`;
+- a model slower than the timeout becoming a `503` without waiting for it.
 
 Not covered:
 
-- A successful OpenAI call, and whether the prompt prevents hallucinations in practice. Both would need a real key and incur cost on every CI run.
+- A real OpenAI call, and whether the prompt prevents hallucinations in practice. Both would need a real key and incur cost on every CI run.
 - RLS isolation of the grounding query through this endpoint. It relies on the same pattern that `tenant-isolation.e2e-spec.ts` already tests.
 
 ## Non-goals

@@ -41,7 +41,7 @@ Isolation is enforced by PostgreSQL, not by application filters.
 - **Cross-tenant access returns 404, never 403.** Services contain no `tenantId` comparisons: a row owned by another tenant is invisible to the connection, so it is indistinguishable from a row that does not exist. Existence is never leaked.
 - **Denormalized `tenant_id`.** Every tenant table carries its own `tenant_id`, so policies never depend on joins.
 - **Request-wide transaction.** Writes spanning several tables (for example `POST /staff` creating a `User`, a `Staff` and its `StaffService` rows) are atomic without an explicit `$transaction`.
-- **Known trade-off.** Every scoped request runs inside an interactive transaction (10 s timeout). Slow external calls should run outside it; the AI assist LLM call currently runs inside it.
+- **Slow external calls run after commit.** Every scoped request runs inside an interactive transaction (10 s timeout), so a handler that calls a slow external service (the AI assist LLM call) returns an `AfterCommit` step instead. The interceptor commits, then runs the step with database access disabled: it can only use data read inside the transaction, and the interceptor stays the only place that calls `set_config`.
 
 ## Business entities
 

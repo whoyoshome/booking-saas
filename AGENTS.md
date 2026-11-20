@@ -7,7 +7,7 @@ Instructions for AI coding agents (Claude Code, Cursor, Copilot, etc.) working i
 1. **Never bypass Row Level Security.** Every query on a tenant-scoped table (`users`, `branches`, `services`, `staff`, `staff_services`, `staff_schedules`, `branch_schedules`, `bookings` and their exception tables) must go through `this.prisma.client.*`, never `this.prisma.*`. `this.prisma.client` is the RLS-scoped transaction opened by `TenantContextInterceptor`. The raw `this.prisma` connection is only legitimate in `AuthService` (identity is resolved before a tenant exists) and in the two system scripts (`prisma/seed.ts`, `bookings-cleanup.service.ts`) that use the `set_config('app.is_super_admin', 'true', true)` bypass. Do not add another caller of that bypass without asking.
 2. **Never invent an endpoint.** If a task seems to need a new route, propose it and stop. Check `apps/api/src/*/*.controller.ts` for what actually exists.
 3. **Never commit `.env` or real secrets** in a diff, commit message or generated file. `.env.example` documents the shape.
-4. **Run the e2e suite before finishing a backend change:** `cd apps/api && npm run test:e2e` (75 tests, all green). Any change under `apps/api/src/**` is what this suite protects.
+4. **Run the e2e suite before finishing a backend change:** `cd apps/api && npm run test:e2e` (79 tests, all green). Any change under `apps/api/src/**` is what this suite protects.
 5. **Keep diffs minimal.** No reformatting, import reordering or unrelated rewrites.
 6. **The stack is fixed.** Do not introduce GraphQL, MongoDB or any non-relational datastore, Terraform/OpenTofu, or an ORM other than Prisma. The AWS layout is designed but not applied; read `docs/aws-target.md` before touching anything AWS-related. If a task seems to require any of these, stop and ask.
 
@@ -29,7 +29,7 @@ Instructions for AI coding agents (Claude Code, Cursor, Copilot, etc.) working i
 
 ## AI assist (`POST /ai/assist`)
 
-Read-only assistant grounded through `this.prisma.client` on the tenant's `PENDING` bookings, with no write capability. Contract: `docs/ai-assist.md`. Any extension (more data sources, another LLM-backed endpoint) must keep the same pattern: explicit read-only grounding, a prompt that says to admit when the data does not contain the answer, and a clear `503` when configuration is missing.
+Read-only assistant grounded through `this.prisma.client` on the tenant's `PENDING` bookings, with no write capability. Contract: `docs/ai-assist.md`. Any extension (more data sources, another LLM-backed endpoint) must keep the same pattern: explicit read-only grounding, a prompt that says to admit when the data does not contain the answer, a clear `503` when configuration is missing or the upstream fails, and the external call returned as an `AfterCommit` step so it runs outside the RLS transaction, with a timeout.
 
 ## Out of scope
 

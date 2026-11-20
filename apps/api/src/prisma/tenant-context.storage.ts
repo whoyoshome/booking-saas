@@ -16,13 +16,28 @@ import { Prisma } from '@prisma/client';
  */
 @Injectable()
 export class TenantContextStorage {
-  private readonly als = new AsyncLocalStorage<Prisma.TransactionClient>();
+  // `null` marks code running after the request transaction committed
+  // (see AfterCommit): database access is refused there instead of
+  // silently falling back to the raw, non-RLS-scoped client.
+  private readonly als = new AsyncLocalStorage<Prisma.TransactionClient | null>();
 
   run<T>(client: Prisma.TransactionClient, callback: () => T): T {
     return this.als.run(client, callback);
   }
 
+  /** Runs `callback` where any PrismaService.client access throws. */
+  runWithoutDatabase<T>(callback: () => T): T {
+    return this.als.run(null, callback);
+  }
+
   getClient(): Prisma.TransactionClient | undefined {
-    return this.als.getStore();
+    const store = this.als.getStore();
+    if (store === null) {
+      throw new Error(
+        'Database access after the request transaction committed (AfterCommit step). ' +
+          'Read the data before returning AfterCommit.',
+      );
+    }
+    return store;
   }
 }

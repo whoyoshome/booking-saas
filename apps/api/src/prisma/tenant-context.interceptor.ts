@@ -9,6 +9,7 @@ import { Observable, from, firstValueFrom } from 'rxjs';
 import { Role } from '@prisma/client';
 import { PrismaService } from './prisma.service';
 import { TenantContextStorage } from './tenant-context.storage';
+import { AfterCommit } from './after-commit';
 import { AuthenticatedUser } from '../auth/types/jwt-payload.type';
 
 /**
@@ -32,9 +33,11 @@ import { AuthenticatedUser } from '../auth/types/jwt-payload.type';
  * wrapping entirely — there is no tenant context to set and no
  * RLS-protected data to touch on those paths.
  *
- * KNOWN TRADE-OFF: every wrapped request runs inside an interactive Prisma
- * transaction (timeout extended to 10s below). Fine for CRUD, but slow
- * external calls (e.g. an LLM request) should run outside the transaction.
+ * Every wrapped request runs inside an interactive Prisma transaction
+ * (timeout extended to 10s below). Fine for CRUD; a slow external call
+ * (e.g. an LLM request) must not run in it. A handler that needs one
+ * returns an AfterCommit: the transaction commits first, then its step
+ * runs with database access disabled (see after-commit.ts).
  */
 @Injectable()
 export class TenantContextInterceptor implements NestInterceptor {
@@ -72,7 +75,14 @@ export class TenantContextInterceptor implements NestInterceptor {
           );
         },
         { timeout: 10_000 },
-      ),
+      ).then((result) => this.runAfterCommit(result)),
     );
+  }
+
+  /** Runs an AfterCommit step once the transaction has committed; passes anything else through. */
+  private runAfterCommit(result: unknown): unknown {
+    return result instanceof AfterCommit
+      ? this.tenantContext.runWithoutDatabase(() => result.step())
+      : result;
   }
 }
