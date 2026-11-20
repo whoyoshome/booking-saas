@@ -37,7 +37,8 @@ updates:
       web-minor-and-patch:
         update-types: [minor, patch]
     ignore:
-      # Next 15 needs React 19; both are a planned upgrade.
+      # Next 16 (removes `next lint`, builds with Turbopack by default) and
+      # the React majors that come with it are a planned upgrade.
       - dependency-name: next
         update-types: [version-update:semver-major]
       - dependency-name: eslint-config-next
