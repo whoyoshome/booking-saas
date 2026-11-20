@@ -36,10 +36,17 @@ export function AiAssistBox() {
       });
 
       if (res.status === 503) {
-        // The documented, expected state when OPENAI_API_KEY isn't
-        // configured (e.g. this demo's own hosted environment, unless a
-        // key was explicitly added) — not a bug, shown as a plain notice.
-        setError('The AI assistant is not configured in this environment (OPENAI_API_KEY is missing).');
+        const body = (await res.json().catch(() => null)) as { message?: unknown } | null;
+        const message = typeof body?.message === 'string' ? body.message : '';
+        // "Not configured" (no OPENAI_API_KEY, e.g. this demo's hosted
+        // environment) is the documented, expected state — shown as a plain
+        // notice. Any other 503 (the model timed out, the upstream failed)
+        // carries its own message from the API, shown as-is.
+        if (/not configured/i.test(message)) {
+          setError('The AI assistant is not configured in this environment (OPENAI_API_KEY is missing).');
+        } else {
+          setError(message || 'The AI assistant is temporarily unavailable.');
+        }
         return;
       }
 
