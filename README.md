@@ -60,7 +60,7 @@ New booking, steps 1–4: [Branch](docs/screenshots/book-1-branch.png) · [Servi
 
 ```mermaid
 flowchart LR
-  Browser["Next.js 14 (Vercel / Docker)"] --> API["NestJS API (Render / Docker)"]
+  Browser["Next.js 15 (Vercel / Docker)"] --> API["NestJS API (Render / Docker)"]
   API --> PG["PostgreSQL 16\nFORCE RLS + SET LOCAL"]
   API --> Redis["Redis / Upstash\nrate limit + cache"]
 ```
@@ -69,7 +69,7 @@ Request path for tenant data: JWT → `TenantGuard` → `TenantContextIntercepto
 
 ## Stack
 
-NestJS · Prisma · PostgreSQL 16 (RLS, `booking_admin` / `booking_app`) · Redis · Next.js 14 · Tailwind CSS · Vitest + Testing Library · Playwright + axe-core · GitHub Actions (lint, typecheck, unit, API e2e, browser e2e, production images)
+NestJS · Prisma · PostgreSQL 16 (RLS, `booking_admin` / `booking_app`) · Redis · Next.js 15 + React 19 · Tailwind CSS · Vitest + Testing Library · Playwright + axe-core · GitHub Actions (lint, typecheck, unit, API e2e, browser e2e, production images)
 
 ## AI / agents
 
