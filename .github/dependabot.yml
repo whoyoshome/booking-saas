@@ -18,6 +18,11 @@ updates:
     groups:
       api-minor-and-patch:
         update-types: [minor, patch]
+      # Parser and plugin peer-depend on the same major; bumped alone,
+      # either one breaks `npm ci` with ERESOLVE.
+      typescript-eslint:
+        patterns: ["@typescript-eslint/*"]
+        update-types: [major]
     ignore:
       # NestJS 11+ (Express 5 routing, ESM-only packages) and Prisma 6/7
       # (generator, driver adapters, ESM) are planned upgrades.
@@ -26,6 +31,18 @@ updates:
       - dependency-name: prisma
         update-types: [version-update:semver-major]
       - dependency-name: "@prisma/client"
+        update-types: [version-update:semver-major]
+      # Express 5 types; the API runs Express 4 until the NestJS 11 upgrade.
+      - dependency-name: "@types/express"
+        update-types: [version-update:semver-major]
+      # TypeScript 7: ts-jest 29 requires typescript <7.
+      - dependency-name: typescript
+        update-types: [version-update:semver-major]
+      # openai 7: request timeouts are no longer caught as
+      # OpenAI.APIConnectionTimeoutError in ai-assist.service.ts, so the
+      # timeout 503 turns generic. Future work: adapt the error handling
+      # (test/ai-assist.e2e-spec.ts covers it), then drop this entry.
+      - dependency-name: openai
         update-types: [version-update:semver-major]
 
   - package-ecosystem: npm
@@ -50,6 +67,9 @@ updates:
       - dependency-name: "@types/react"
         update-types: [version-update:semver-major]
       - dependency-name: "@types/react-dom"
+        update-types: [version-update:semver-major]
+      # TypeScript 7 needs Next >= 16.2.11; it comes with the Next 16 upgrade.
+      - dependency-name: typescript
         update-types: [version-update:semver-major]
 
   # Base images in Dockerfile and Dockerfile.prod (Dependabot reads every
